@@ -19,7 +19,24 @@ import SharedWorkspace from '@/components/room/SharedWorkspace';
 import RoleConfigModal from '@/components/room/RoleConfigModal';
 import GodModeModal from '@/components/admin/GodModeModal';
 import CommandPalette from '@/components/ide/CommandPalette';
-import { Bot, Plus, AlertTriangle, ArrowLeft, RefreshCw, Radio, Lock, ShieldCheck, Zap } from 'lucide-react';
+import PhonkRadioPlayer from '@/components/brand/PhonkRadioPlayer';
+import SwarmTopologySelector from '@/components/room/SwarmTopologySelector';
+import CostSpeedometer from '@/components/room/CostSpeedometer';
+import MultiplayerCursors from '@/components/room/MultiplayerCursors';
+import ReactionOverlay from '@/components/room/ReactionOverlay';
+import AgentMarketplaceModal, { MarketplaceAgent } from '@/components/room/AgentMarketplaceModal';
+import {
+  Bot,
+  Plus,
+  AlertTriangle,
+  ArrowLeft,
+  RefreshCw,
+  Radio,
+  Lock,
+  ShieldCheck,
+  Zap,
+  ShoppingBag,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { soundManager } from '@/lib/sound';
@@ -34,6 +51,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isGodModeOpen, setIsGodModeOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
 
   // Host & GodMode Status
   const [isHost, setIsHost] = useState(false);
@@ -217,7 +235,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         break;
 
       case 'SAFETY_EVENT':
-        soundManager.playStop();
+        soundManager.playGlitchSound();
         setRoom((prev) => {
           if (!prev) return prev;
           return {
@@ -407,10 +425,31 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const handleSelectMarketplaceAgent = async (agent: MarketplaceAgent) => {
+    try {
+      await fetch(`/api/rooms/${roomId}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentName: agent.name,
+          roleLabel: agent.roleLabel,
+          systemPrompt: agent.systemPrompt,
+          provider: 'GEMINI',
+          modelName: agent.recommendedModel,
+          avatarColor: agent.avatarColor,
+          isCustom: true,
+        }),
+      });
+      fetchRoomData();
+    } catch (e) {
+      console.error('Failed to add marketplace agent', e);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
-        <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
+        <RefreshCw className="h-8 w-8 text-rose-500 animate-spin" />
         <p className="text-sm text-slate-400">Loading Agentic Room session...</p>
       </div>
     );
@@ -438,7 +477,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       : null;
 
   return (
-    <div className="flex-1 flex flex-col max-w-[1750px] w-full mx-auto pb-8">
+    <div className="flex-1 flex flex-col max-w-[1750px] w-full mx-auto pb-8 relative">
+      {/* Real-time Simulated Collaborative Cursors (F61) */}
+      <MultiplayerCursors participants={room.participants} />
+
+      {/* Floating Spectator Reactions Overlay (F63) */}
+      <ReactionOverlay />
+
       {/* Global Broadcast Banner */}
       {globalBanner && (
         <div
@@ -490,9 +535,12 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        {/* Participants Avatar Badges & Quick GodMode trigger */}
+        {/* Header Right: Phonk Radio (F42), Participants & Developer Controls */}
         <div className="flex items-center gap-2">
-          {/* Subtle Dev Trigger for Atha */}
+          {/* Phonk Radio Player */}
+          <PhonkRadioPlayer />
+
+          {/* Developer Superuser Trigger (Ctrl+Shift+A) */}
           <button
             onClick={() => setIsGodModeOpen(true)}
             className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-amber-500/50 text-slate-500 hover:text-amber-400 text-[10px] font-mono transition"
@@ -501,6 +549,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             <Zap className="h-3.5 w-3.5" />
           </button>
 
+          {/* Participants Badges + Add Agent */}
           <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
             <span className="text-[11px] text-slate-400 font-medium">Agents ({room.participants.length}/2+):</span>
             <div className="flex items-center -space-x-1.5">
@@ -516,9 +565,18 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
               ))}
             </div>
 
+            {/* Agent Marketplace Hub Button (F12) */}
+            <button
+              onClick={() => setIsMarketplaceOpen(true)}
+              className="ml-1.5 p-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 transition"
+              title="Browse Agent Marketplace (F12)"
+            >
+              <ShoppingBag className="h-3 w-3" />
+            </button>
+
             <button
               onClick={() => setIsRoleModalOpen(true)}
-              className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[11px] font-semibold transition"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold transition shadow-sm"
             >
               <Plus className="h-3 w-3" />
               <span>Add Agent</span>
@@ -550,6 +608,21 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         onRoomDeleted={() => router.push('/')}
       />
 
+      {/* Live Burn-Rate Speedometer & Secret Sanitizer (F51 & F58) */}
+      <div className="px-4 py-2">
+        <CostSpeedometer
+          totalTokens={room.totalTokens}
+          estimatedCost={room.estimatedCost}
+          currentTurn={room.currentTurn}
+          maxTurns={room.maxTurns}
+        />
+      </div>
+
+      {/* Swarm Topology Selector (F11) */}
+      <div className="px-4 pb-2">
+        <SwarmTopologySelector />
+      </div>
+
       {/* Visual Delay Countdown Overlay */}
       {countdownSeconds > 0 && nextAgent && (
         <CountdownOverlay
@@ -563,29 +636,37 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Notice if Room has < 2 agents */}
       {room.participants.length < 2 && (
-        <div className="mx-4 mb-4 p-4 rounded-2xl bg-blue-950/40 border border-blue-800/60 flex items-center justify-between gap-4">
+        <div className="mx-4 mb-4 p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Bot className="h-6 w-6 text-blue-400 shrink-0" />
+            <Bot className="h-6 w-6 text-rose-400 shrink-0" />
             <div>
               <div className="text-xs font-bold text-white">Minimum 2 Agents Required to Collaborate</div>
               <p className="text-xs text-slate-300">
-                Configure at least two AI agents (with their individual API keys or free demo keys) to commence autonomous pairing.
+                Configure at least two AI agents (or import from Community Marketplace) to commence autonomous pairing.
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setIsRoleModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap shadow-md transition"
-          >
-            Configure Agent #{room.participants.length + 1}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMarketplaceOpen(true)}
+              className="px-3 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700 text-xs font-semibold shadow-md transition"
+            >
+              Open Marketplace
+            </button>
+            <button
+              onClick={() => setIsRoleModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold whitespace-nowrap shadow-md transition"
+            >
+              Configure Agent #{room.participants.length + 1}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Main Split Layout: Chat View (Left) & Antigravity VFS/Terminal Workspace (Right) */}
-      <div className="flex-1 px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[620px]">
+      <div className="flex-1 px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[640px]">
         {/* Left Column: Real-time Group Chat & Director Guidance (6 cols) */}
-        <div className="lg:col-span-6 h-[720px]">
+        <div className="lg:col-span-6 h-[760px]">
           <AgentChatView
             roomId={roomId}
             messages={room.messages}
@@ -595,10 +676,11 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           />
         </div>
 
-        {/* Right Column: Antigravity VFS + Terminal + Tasks + Decisions (6 cols) */}
-        <div className="lg:col-span-6 h-[720px]">
+        {/* Right Column: Antigravity VFS + Terminal + Preview + Git + Whiteboard (6 cols) */}
+        <div className="lg:col-span-6 h-[760px]">
           <SharedWorkspace
             roomId={roomId}
+            roomName={room.name}
             workspaceItems={room.workspaceItems}
             safetyEvents={room.safetyEvents}
             virtualFiles={virtualFiles}
@@ -617,6 +699,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         onClose={() => setIsRoleModalOpen(false)}
         onParticipantAdded={fetchRoomData}
         existingCount={room.participants.length}
+      />
+
+      {/* Community Agent Marketplace Modal (F12) */}
+      <AgentMarketplaceModal
+        isOpen={isMarketplaceOpen}
+        onClose={() => setIsMarketplaceOpen(false)}
+        onSelectAgent={handleSelectMarketplaceAgent}
       />
 
       {/* Developer GodMode Modal (Atha1337) */}

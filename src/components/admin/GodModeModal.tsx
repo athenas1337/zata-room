@@ -179,7 +179,7 @@ export default function GodModeModal({ isOpen, onClose }: GodModeModalProps) {
               <h2 className="text-sm sm:text-base font-black text-amber-400 tracking-wide flex items-center gap-2">
                 <span>ZATA DEVELOPER GODMODE</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-black font-bold uppercase">
-                  Atha1337
+                  SUPERUSER
                 </span>
               </h2>
               <p className="text-xs text-slate-400">Developer Master Control &amp; Global Supervisor Dashboard</p>
@@ -221,7 +221,7 @@ export default function GodModeModal({ isOpen, onClose }: GodModeModalProps) {
                   type="password"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Master Passcode (e.g. Atha1337)"
+                  placeholder="Enter Master Passcode"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-500/50 text-amber-300 text-center text-sm font-mono tracking-widest focus:outline-none focus:border-amber-400"
                   autoFocus
                 />

@@ -17,15 +17,26 @@ import {
   Search,
   Check,
   UserCheck,
+  Eye,
+  FolderArchive,
+  GitCommit,
+  Layers,
+  Wrench,
 } from 'lucide-react';
 import CodeEditorView from '@/components/ide/CodeEditorView';
 import DiffViewer from '@/components/ide/DiffViewer';
 import SourceControlView from '@/components/ide/SourceControlView';
+import LiveWebPreview from '@/components/ide/LiveWebPreview';
+import ZipExporter from '@/components/ide/ZipExporter';
+import GitGraphViewer from '@/components/ide/GitGraphViewer';
+import WhiteboardCanvas from './WhiteboardCanvas';
+import SelfHealingController from '@/components/ide/SelfHealingController';
 import WebTerminal from './WebTerminal';
 import { soundManager } from '@/lib/sound';
 
 interface SharedWorkspaceProps {
   roomId: string;
+  roomName?: string;
   workspaceItems: WorkspaceItemDTO[];
   safetyEvents: SafetyEventDTO[];
   virtualFiles?: VirtualFileDTO[];
@@ -37,6 +48,7 @@ interface SharedWorkspaceProps {
 
 export default function SharedWorkspace({
   roomId,
+  roomName = 'ZATA Agentic Workspace',
   workspaceItems,
   safetyEvents,
   virtualFiles = [],
@@ -45,9 +57,20 @@ export default function SharedWorkspace({
   onFilesUpdated,
   onTerminalExecuted,
 }: SharedWorkspaceProps) {
-  // Activity Rail Tab: 'editor' | 'explorer' | 'git' | 'terminal' | 'tasks' | 'decisions' | 'safety'
+  // Activity Rail Tab:
+  // 'editor' | 'explorer' | 'preview' | 'git' | 'git_graph' | 'terminal' | 'whiteboard' | 'tools' | 'tasks' | 'decisions' | 'safety'
   const [activeActivity, setActiveActivity] = useState<
-    'editor' | 'explorer' | 'git' | 'terminal' | 'tasks' | 'decisions' | 'safety'
+    | 'editor'
+    | 'explorer'
+    | 'preview'
+    | 'git'
+    | 'git_graph'
+    | 'terminal'
+    | 'whiteboard'
+    | 'tools'
+    | 'tasks'
+    | 'decisions'
+    | 'safety'
   >('editor');
 
   // Multi-file tabs management
@@ -68,6 +91,9 @@ export default function SharedWorkspace({
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [newFilePath, setNewFilePath] = useState('');
   const [newFileContent, setNewFileContent] = useState('');
+
+  // Export Zip Modal (F81)
+  const [isZipModalOpen, setIsZipModalOpen] = useState(false);
 
   // Extract task list item
   const taskListItem = workspaceItems.find((i) => i.key === 'task_list');
@@ -243,36 +269,54 @@ export default function SharedWorkspace({
   return (
     <div className="flex h-full bg-[#08040a] rounded-2xl border border-rose-950/60 overflow-hidden shadow-2xl">
       {/* 1. VS Code / GitHub Activity Rail (Leftmost Icon Bar) */}
-      <div className="w-12 bg-[#0d0512] border-r border-rose-950/50 flex flex-col items-center py-3 gap-3 select-none shrink-0">
-        {[
-          { id: 'editor', icon: Code2, label: 'Code Editor' },
-          { id: 'explorer', icon: FolderTree, label: `Explorer (${virtualFiles.length})` },
-          { id: 'git', icon: GitBranch, label: 'Source Control (Git)' },
-          { id: 'terminal', icon: Terminal, label: 'Integrated Terminal' },
-          { id: 'tasks', icon: CheckSquare, label: `Tasks (${tasks.length})` },
-          { id: 'decisions', icon: Award, label: `Decisions (${decisions.length})` },
-          { id: 'safety', icon: ShieldAlert, label: `Safety Audit (${safetyEvents.length})` },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = activeActivity === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleActivityChange(item.id as any)}
-              className={`p-2 rounded-xl transition-all relative group ${
-                isActive
-                  ? 'bg-rose-950/90 text-rose-300 border border-rose-600/70 shadow-lg shadow-rose-950/80'
-                  : 'text-slate-500 hover:text-slate-200 hover:bg-slate-900/60'
-              }`}
-              title={item.label}
-            >
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-rose-500 rounded-r" />
-              )}
-              <Icon className="h-4 w-4" />
-            </button>
-          );
-        })}
+      <div className="w-12 bg-[#0d0512] border-r border-rose-950/50 flex flex-col items-center py-3 gap-2.5 select-none shrink-0 justify-between">
+        <div className="flex flex-col items-center gap-2.5">
+          {[
+            { id: 'editor', icon: Code2, label: 'Code Editor' },
+            { id: 'explorer', icon: FolderTree, label: `Explorer (${virtualFiles.length})` },
+            { id: 'preview', icon: Eye, label: 'Live Web Preview (F85)' },
+            { id: 'git', icon: GitBranch, label: 'Source Control (Git)' },
+            { id: 'git_graph', icon: GitCommit, label: 'Git Graph Tree (F31)' },
+            { id: 'terminal', icon: Terminal, label: 'Integrated Terminal' },
+            { id: 'whiteboard', icon: Layers, label: 'Whiteboard Canvas (F65)' },
+            { id: 'tools', icon: Wrench, label: 'Self-Healing & AI Tools (F91-100)' },
+            { id: 'tasks', icon: CheckSquare, label: `Tasks (${tasks.length})` },
+            { id: 'decisions', icon: Award, label: `Decisions (${decisions.length})` },
+            { id: 'safety', icon: ShieldAlert, label: `Safety Audit (${safetyEvents.length})` },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeActivity === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleActivityChange(item.id as any)}
+                className={`p-2 rounded-xl transition-all relative group ${
+                  isActive
+                    ? 'bg-rose-950/90 text-rose-300 border border-rose-600/70 shadow-lg shadow-rose-950/80'
+                    : 'text-slate-500 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+                title={item.label}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-rose-500 rounded-r" />
+                )}
+                <Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* F81: Bottom Action: One-Click ZIP Downloader Hub */}
+        <button
+          onClick={() => {
+            soundManager.playCheckpoint();
+            setIsZipModalOpen(true);
+          }}
+          className="p-2 rounded-xl bg-[#140719] border border-rose-950 hover:border-rose-600 text-rose-400 hover:text-white transition shadow-sm"
+          title="Export Workspace Bundle (.zip / Docker / CI) (F81)"
+        >
+          <FolderArchive className="h-4 w-4" />
+        </button>
       </div>
 
       {/* 2. Main Workbench Content Area */}
@@ -408,7 +452,18 @@ export default function SharedWorkspace({
           </div>
         )}
 
-        {/* VIEW 3: GIT SOURCE CONTROL */}
+        {/* VIEW 3: LIVE WEB PREVIEW (F85) */}
+        {activeActivity === 'preview' && (
+          <div className="h-full">
+            <LiveWebPreview
+              files={virtualFiles}
+              activeFilePath={activeFilePath}
+              onSelectFile={handleOpenFile}
+            />
+          </div>
+        )}
+
+        {/* VIEW 4: GIT SOURCE CONTROL */}
         {activeActivity === 'git' && (
           <div className="h-full">
             <SourceControlView
@@ -420,7 +475,14 @@ export default function SharedWorkspace({
           </div>
         )}
 
-        {/* VIEW 4: INTEGRATED TERMINAL */}
+        {/* VIEW 5: GIT GRAPH TREE (F31) */}
+        {activeActivity === 'git_graph' && (
+          <div className="h-full">
+            <GitGraphViewer roomId={roomId} />
+          </div>
+        )}
+
+        {/* VIEW 6: INTEGRATED TERMINAL */}
         {activeActivity === 'terminal' && (
           <div className="h-full">
             <WebTerminal
@@ -432,7 +494,34 @@ export default function SharedWorkspace({
           </div>
         )}
 
-        {/* VIEW 5: TASK BOARD */}
+        {/* VIEW 7: ARCHITECTURE WHITEBOARD CANVAS (F65) */}
+        {activeActivity === 'whiteboard' && (
+          <div className="h-full">
+            <WhiteboardCanvas roomId={roomId} />
+          </div>
+        )}
+
+        {/* VIEW 8: SELF-HEALING & AI DEVELOPER TOOLS (F91-F100) */}
+        {activeActivity === 'tools' && (
+          <div className="h-full">
+            <SelfHealingController
+              roomId={roomId}
+              files={virtualFiles}
+              logs={terminalLogs}
+              onApplyFix={handleSaveFile}
+              onRunTestCommand={async () => {
+                await fetch(`/api/rooms/${roomId}/terminal`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ command: 'npm test', executedBy: 'Self-Healing Engine' }),
+                });
+                if (onTerminalExecuted) onTerminalExecuted();
+              }}
+            />
+          </div>
+        )}
+
+        {/* VIEW 9: TASK BOARD */}
         {activeActivity === 'tasks' && (
           <div className="p-4 h-full overflow-y-auto space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-rose-950/50">
@@ -518,7 +607,7 @@ export default function SharedWorkspace({
           </div>
         )}
 
-        {/* VIEW 6: CONSENSUS DECISION LOG */}
+        {/* VIEW 10: CONSENSUS DECISION LOG */}
         {activeActivity === 'decisions' && (
           <div className="p-4 h-full overflow-y-auto space-y-3 font-mono text-xs">
             <div className="pb-2 border-b border-rose-950/50 text-xs font-bold uppercase tracking-wider text-rose-300">
@@ -540,7 +629,7 @@ export default function SharedWorkspace({
           </div>
         )}
 
-        {/* VIEW 7: SAFETY AUDIT LOG */}
+        {/* VIEW 11: SAFETY AUDIT LOG */}
         {activeActivity === 'safety' && (
           <div className="p-4 h-full overflow-y-auto space-y-3 font-mono text-xs">
             <div className="pb-2 border-b border-rose-950/50 text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
@@ -563,6 +652,14 @@ export default function SharedWorkspace({
           </div>
         )}
       </div>
+
+      {/* F81 ZIP Exporter Modal */}
+      <ZipExporter
+        roomName={roomName}
+        files={virtualFiles}
+        isOpen={isZipModalOpen}
+        onClose={() => setIsZipModalOpen(false)}
+      />
     </div>
   );
 }

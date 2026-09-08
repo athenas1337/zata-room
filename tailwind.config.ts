@@ -54,10 +54,21 @@ const config: Config = {
             filter: "drop-shadow(0 0 12px #f59e0b) drop-shadow(0 0 20px #e11d48)",
           },
         },
+        "float-up": {
+          "0%": {
+            transform: "translateY(0) scale(0.8)",
+            opacity: "1",
+          },
+          "100%": {
+            transform: "translateY(-140px) scale(1.3)",
+            opacity: "0",
+          },
+        },
       },
       animation: {
         "jedag-jedug": "jedag-jedug 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "eye-glow": "eye-glow 2.5s ease-in-out infinite",
+        "float-up": "float-up 2.2s ease-out forwards",
       },
     },
   },

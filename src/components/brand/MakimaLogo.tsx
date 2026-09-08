@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Sparkles, Radio } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
@@ -9,19 +9,83 @@ interface MakimaLogoProps {
   size?: 'sm' | 'md' | 'lg';
   showSubtitle?: boolean;
   interactive?: boolean;
+  onSecretTrigger?: () => void;
 }
 
 export default function MakimaLogo({
   size = 'md',
   showSubtitle = true,
   interactive = true,
+  onSecretTrigger,
 }: MakimaLogoProps) {
   const [isJedagActive, setIsJedagActive] = useState(false);
+  const [isSuperJedag, setIsSuperJedag] = useState(false);
+
+  // F44: Interactive eye-tracking coordinates
+  const [eyeOffset, setEyeOffset] = useState({ x: 0, y: 0 });
+  const logoRef = useRef<HTMLDivElement>(null);
+
+  // F50: Konami Code Easter Egg (Up Up Down Down Left Right Left Right B A)
+  useEffect(() => {
+    const konamiSequence = [
+      'ArrowUp',
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowLeft',
+      'ArrowRight',
+      'b',
+      'a',
+    ];
+    let currentIndex = 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const expectedKey = konamiSequence[currentIndex];
+      if (e.key.toLowerCase() === expectedKey.toLowerCase()) {
+        currentIndex++;
+        if (currentIndex === konamiSequence.length) {
+          // Trigger Super Jedag-Jedug Mode!
+          setIsSuperJedag(true);
+          soundManager.playJedagJedugBeat();
+          currentIndex = 0;
+          setTimeout(() => setIsSuperJedag(false), 12000);
+        }
+      } else {
+        currentIndex = 0;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // F44: Eye-Tracking Mouse Coordinates
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!logoRef.current) return;
+      const rect = logoRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+      const distance = Math.min(2.5, Math.hypot(e.clientX - centerX, e.clientY - centerY) / 80);
+
+      setEyeOffset({
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   const handleLogoClick = () => {
     if (!interactive) return;
     setIsJedagActive((prev) => !prev);
-    soundManager.playClick();
+    soundManager.playJedagJedugBeat();
   };
 
   const avatarDimensions = {
@@ -31,17 +95,25 @@ export default function MakimaLogo({
   }[size];
 
   return (
-    <div className="flex items-center gap-3 select-none">
+    <div className="flex items-center gap-3 select-none" ref={logoRef}>
       {/* Makima Avatar with Jedag-Jedug Animated Ring */}
       <div
         onClick={handleLogoClick}
         className={`relative ${avatarDimensions} rounded-2xl cursor-pointer transition-transform active:scale-95 group ${
-          isJedagActive ? 'animate-jedag-beat' : 'hover:scale-105'
+          isSuperJedag
+            ? 'animate-bounce scale-110'
+            : isJedagActive
+            ? 'animate-jedag-beat'
+            : 'hover:scale-105'
         }`}
-        title="Makima Jedag-Jedug Avatar (Click to pulse beat!)"
+        title="Makima Concentric Eye-Tracking Avatar (Click for Jedag beat!)"
       >
         {/* Pulsing Outer Glow Aura */}
-        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-500 to-red-600 opacity-75 blur-sm group-hover:opacity-100 transition-opacity animate-pulse" />
+        <div
+          className={`absolute -inset-1 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-500 to-red-600 opacity-75 blur-sm transition-opacity ${
+            isSuperJedag ? 'opacity-100 blur-md animate-spin' : 'group-hover:opacity-100 animate-pulse'
+          }`}
+        />
 
         {/* Vector Canvas/SVG of Makima */}
         <div className="relative h-full w-full rounded-2xl overflow-hidden bg-[#0a050d] border border-rose-500/60 flex items-center justify-center shadow-lg">
@@ -86,9 +158,9 @@ export default function MakimaLogo({
             <path d="M42 26 Q46 44 43 48 Q49 38 52 26 Z" fill="#f43f5e" />
             <path d="M50 26 Q54 44 57 48 Q52 38 50 26 Z" fill="#e11d48" />
 
-            {/* Eyes - Concentric Hypnotic Spiral Rings (Makima's signature!) */}
+            {/* F44: Eyes with dynamic eye-tracking pupils */}
             {/* Left Eye */}
-            <g className="animate-eye-glow">
+            <g transform={`translate(${eyeOffset.x}, ${eyeOffset.y})`}>
               <circle cx="42" cy="46" r="5" fill="#f59e0b" />
               <circle cx="42" cy="46" r="3.5" stroke="#78350f" strokeWidth="0.8" fill="#fbbf24" />
               <circle cx="42" cy="46" r="2" stroke="#b45309" strokeWidth="0.8" fill="#fef08a" />
@@ -97,7 +169,7 @@ export default function MakimaLogo({
             </g>
 
             {/* Right Eye */}
-            <g className="animate-eye-glow">
+            <g transform={`translate(${eyeOffset.x}, ${eyeOffset.y})`}>
               <circle cx="58" cy="46" r="5" fill="#f59e0b" />
               <circle cx="58" cy="46" r="3.5" stroke="#78350f" strokeWidth="0.8" fill="#fbbf24" />
               <circle cx="58" cy="46" r="2" stroke="#b45309" strokeWidth="0.8" fill="#fef08a" />
@@ -123,8 +195,14 @@ export default function MakimaLogo({
           </svg>
         </div>
 
-        {/* Small pulsing status dot */}
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
+        {/* Small status dot with subtle double-click handler */}
+        <span
+          className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 cursor-pointer"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            if (onSecretTrigger) onSecretTrigger();
+          }}
+        >
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 border border-black" />
         </span>

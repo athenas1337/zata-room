@@ -90,7 +90,7 @@ export default function CommandPalette({
     },
     {
       id: 'godmode',
-      title: 'Open Developer GodMode Console (Atha1337)',
+      title: 'Open Developer GodMode Console (Ctrl+Shift+A)',
       category: 'Developer',
       icon: Zap,
       action: () => onOpenGodMode && onOpenGodMode(),
