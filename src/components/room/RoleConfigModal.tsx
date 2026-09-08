@@ -44,6 +44,7 @@ const DEFAULT_MODELS: Record<ProviderType, string[]> = {
   ANTHROPIC: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
   GOOGLE: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'],
   CUSTOM_GATEWAY: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'meta-llama/llama-3.3-70b-instruct'],
+  SIMULATED: ['zata-simulation-v1'],
 };
 
 export default function RoleConfigModal({
@@ -184,10 +185,25 @@ export default function RoleConfigModal({
 
           {/* Quick Role Templates */}
           <div>
-            <label className="block font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Select Preset Persona Template:</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Select Preset Persona Template:</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setProvider('SIMULATED');
+                  setModelName('zata-simulation-v1');
+                  setApiKey('demo-mock-key');
+                  setTestResult({ valid: true });
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[11px] font-semibold text-emerald-300 transition flex items-center gap-1"
+                title="Fill with simulated agent credentials for instant testing without API cost"
+              >
+                ✨ Fill Free Demo Key
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {ROLE_TEMPLATES.map((tmpl, i) => (
                 <button
@@ -257,6 +273,7 @@ export default function RoleConfigModal({
                 <option value="ANTHROPIC">Anthropic Claude</option>
                 <option value="GOOGLE">Google Gemini</option>
                 <option value="CUSTOM_GATEWAY">Custom Gateway / OpenRouter</option>
+                <option value="SIMULATED">✨ Simulated Agent (Zero-Cost Demo)</option>
               </select>
             </div>
 

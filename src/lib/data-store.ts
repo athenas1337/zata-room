@@ -20,6 +20,264 @@ class MemoryStore {
       createdAt: new Date(),
     };
     this.users.set(defaultUser.id, defaultUser);
+    this.seedDemoRooms();
+  }
+
+  private seedDemoRooms() {
+    const enc = encryptApiKey('demo-mock-key-123456');
+
+    // 1. High-Concurrency Payment Gateway Room
+    const r1Id = 'room-payment-gateway';
+    const r1 = {
+      id: r1Id,
+      name: 'High-Concurrency Payment Gateway Architecture',
+      goal: 'Architect an ultra-reliable, multi-region payment routing gateway with idempotency keys, token buckets, and sub-second failover mechanics.',
+      status: 'ACTIVE',
+      currentTurn: 3,
+      maxTurns: 50,
+      turnDelaySec: 5,
+      activeAgentIdx: 1,
+      isProcessing: false,
+      lockVersion: 3,
+      safetyConfig: { repetitionThreshold: 0.85, maxTurns: 50, maxBudgetUsd: 2.0, echoThreshold: 0.8 },
+      totalTokens: 1420,
+      estimatedCost: 0.0058,
+      createdById: 'usr-default',
+      createdAt: new Date(Date.now() - 3600000),
+      updatedAt: new Date(),
+    };
+    this.rooms.set(r1Id, r1);
+
+    const r1Parts = [
+      {
+        id: 'part-r1-1',
+        roomId: r1Id,
+        userId: 'usr-default',
+        agentName: 'Architect Alpha',
+        roleLabel: 'Lead Architect',
+        avatarColor: '#3b82f6',
+        systemPrompt: 'Focus on distributed system scalability, database partitioning, and idempotency.',
+        provider: 'SIMULATED',
+        modelName: 'zata-simulation-v1',
+        encryptedApiKey: enc.encryptedApiKey,
+        apiKeyIv: enc.apiKeyIv,
+        apiKeyTag: enc.apiKeyTag,
+        keyMask: 'sim-...demo',
+        turnOrder: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: 'part-r1-2',
+        roomId: r1Id,
+        userId: 'usr-default',
+        agentName: 'Coder Beta',
+        roleLabel: 'Senior Backend Engineer',
+        avatarColor: '#10b981',
+        systemPrompt: 'Implement concrete schemas, rate limiting algorithms, and resilient retry logic.',
+        provider: 'SIMULATED',
+        modelName: 'zata-simulation-v1',
+        encryptedApiKey: enc.encryptedApiKey,
+        apiKeyIv: enc.apiKeyIv,
+        apiKeyTag: enc.apiKeyTag,
+        keyMask: 'sim-...demo',
+        turnOrder: 1,
+        createdAt: new Date(),
+      },
+    ];
+    this.participants.set(r1Id, r1Parts);
+
+    const r1Msgs = [
+      {
+        id: 'msg-r1-1',
+        roomId: r1Id,
+        senderRole: 'Architect Alpha',
+        senderName: 'Architect Alpha',
+        content: 'I have broken down our payment gateway project goal. We must implement an idempotency layer using Redis with a 24-hour TTL and dual-region active-active database replication. I am updating our task board with initial assignments.',
+        tokenCount: 420,
+        turnNumber: 1,
+        isCheckpoint: false,
+        toolCalls: [{ name: 'update_task_list', args: { tasks: [
+          { id: 'task-1', title: 'Design idempotency key hashing & Redis lock mechanism', status: 'done', assignedTo: 'Architect Alpha' },
+          { id: 'task-2', title: 'Implement token bucket algorithm for Stripe/PayPal webhooks', status: 'in_progress', assignedTo: 'Coder Beta' },
+          { id: 'task-3', title: 'Setup automated circuit breaker and failover alerts', status: 'todo', assignedTo: 'Coder Beta' }
+        ]}}],
+        createdAt: new Date(Date.now() - 2400000),
+      },
+      {
+        id: 'msg-r1-2',
+        roomId: r1Id,
+        senderRole: 'Coder Beta',
+        senderName: 'Coder Beta',
+        content: 'I reviewed the idempotency specification. I recommend using SHA-256 hashes combining `Idempotency-Key` + `UserId` + `Amount` to protect against payload tampering. I have drafted the technical spec in our scratchpad and recorded the consensus decision.',
+        tokenCount: 480,
+        turnNumber: 2,
+        isCheckpoint: false,
+        toolCalls: [
+          { name: 'record_decision', args: { decisionTitle: 'Enforce SHA-256 Composite Idempotency Keys', rationale: 'Guarantees requests cannot be forged or replayed with altered amounts.' } },
+          { name: 'write_scratchpad', args: { key: 'gateway_spec', title: 'Payment Gateway Technical Spec', content: '## Core System Design\n- **Idempotency Strategy**: SHA-256(Key + UserID + Payload)\n- **Rate Limiting**: Sliding window counter (100 req/sec per merchant)\n- **Fallback**: Auto-routing to secondary gateway if latency > 800ms', itemType: 'scratchpad' } }
+        ],
+        createdAt: new Date(Date.now() - 1200000),
+      },
+      {
+        id: 'msg-r1-3',
+        roomId: r1Id,
+        senderRole: 'Architect Alpha',
+        senderName: 'Architect Alpha',
+        content: 'The composite key design looks solid. Next, let us focus on the circuit breaker threshold. If gateway error rate exceeds 5% in a 30-second sliding window, traffic should divert to the standby provider within 200ms.',
+        tokenCount: 520,
+        turnNumber: 3,
+        isCheckpoint: false,
+        createdAt: new Date(Date.now() - 300000),
+      }
+    ];
+    this.messages.set(r1Id, r1Msgs);
+
+    const r1Workspace = new Map<string, any>();
+    r1Workspace.set('task_list', {
+      id: 'art-r1-tasks',
+      roomId: r1Id,
+      key: 'task_list',
+      title: 'Project Task Board',
+      itemType: 'task_list',
+      value: [
+        { id: 'task-1', title: 'Design idempotency key hashing & Redis lock mechanism', status: 'done', assignedTo: 'Architect Alpha' },
+        { id: 'task-2', title: 'Implement token bucket algorithm for Stripe/PayPal webhooks', status: 'in_progress', assignedTo: 'Coder Beta' },
+        { id: 'task-3', title: 'Setup automated circuit breaker and failover alerts', status: 'todo', assignedTo: 'Coder Beta' }
+      ],
+      updatedBy: 'Architect Alpha',
+      updatedAt: new Date(),
+    });
+    r1Workspace.set('gateway_spec', {
+      id: 'art-r1-spec',
+      roomId: r1Id,
+      key: 'gateway_spec',
+      title: 'Payment Gateway Technical Spec',
+      itemType: 'scratchpad',
+      value: '## Core System Design\n- **Idempotency Strategy**: SHA-256(Key + UserID + Payload)\n- **Rate Limiting**: Sliding window counter (100 req/sec per merchant)\n- **Fallback**: Auto-routing to secondary gateway if latency > 800ms',
+      updatedBy: 'Coder Beta',
+      updatedAt: new Date(),
+    });
+    r1Workspace.set('decision_log', {
+      id: 'art-r1-dec',
+      roomId: r1Id,
+      key: 'decision_log',
+      title: 'Consensus & Decision Log',
+      itemType: 'decision_log',
+      value: [
+        { id: 'dec-1', title: 'Enforce SHA-256 Composite Idempotency Keys', rationale: 'Guarantees requests cannot be forged or replayed with altered amounts.', by: 'Coder Beta', timestamp: new Date().toISOString() }
+      ],
+      updatedBy: 'Coder Beta',
+      updatedAt: new Date(),
+    });
+    this.workspaceItems.set(r1Id, r1Workspace);
+    this.safetyEvents.set(r1Id, []);
+
+    // 2. Zero-Trust Security Audit Room
+    const r2Id = 'room-security-audit';
+    this.rooms.set(r2Id, {
+      id: r2Id,
+      name: 'Zero-Trust Cloud Infrastructure & Security Audit',
+      goal: 'Audit IAM permissions, verify AES-256-GCM encryption at-rest, and test network egress boundaries for compliance.',
+      status: 'PAUSED',
+      currentTurn: 2,
+      maxTurns: 40,
+      turnDelaySec: 4,
+      activeAgentIdx: 0,
+      isProcessing: false,
+      lockVersion: 2,
+      safetyConfig: { repetitionThreshold: 0.85, maxTurns: 40, maxBudgetUsd: 2.0, echoThreshold: 0.8 },
+      totalTokens: 890,
+      estimatedCost: 0.0035,
+      createdById: 'usr-default',
+      createdAt: new Date(Date.now() - 7200000),
+      updatedAt: new Date(),
+    });
+    this.participants.set(r2Id, [
+      {
+        id: 'part-r2-1',
+        roomId: r2Id,
+        userId: 'usr-default',
+        agentName: 'Auditor Gamma',
+        roleLabel: 'Security Auditor & Critic',
+        avatarColor: '#f43f5e',
+        systemPrompt: 'Audit all access controls and identify single points of failure.',
+        provider: 'SIMULATED',
+        modelName: 'zata-simulation-v1',
+        encryptedApiKey: enc.encryptedApiKey,
+        apiKeyIv: enc.apiKeyIv,
+        apiKeyTag: enc.apiKeyTag,
+        keyMask: 'sim-...demo',
+        turnOrder: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: 'part-r2-2',
+        roomId: r2Id,
+        userId: 'usr-default',
+        agentName: 'DevOps Delta',
+        roleLabel: 'Cloud Platform Engineer',
+        avatarColor: '#8b5cf6',
+        systemPrompt: 'Enforce least privilege IAM policies and Terraform drift detection.',
+        provider: 'SIMULATED',
+        modelName: 'zata-simulation-v1',
+        encryptedApiKey: enc.encryptedApiKey,
+        apiKeyIv: enc.apiKeyIv,
+        apiKeyTag: enc.apiKeyTag,
+        keyMask: 'sim-...demo',
+        turnOrder: 1,
+        createdAt: new Date(),
+      },
+    ]);
+    this.messages.set(r2Id, [
+      {
+        id: 'msg-r2-1',
+        roomId: r2Id,
+        senderRole: 'Auditor Gamma',
+        senderName: 'Auditor Gamma',
+        content: 'Initiating security audit. All user API keys are encrypted at-rest with AES-256-GCM using 96-bit initialization vectors. No plaintext leaks detected.',
+        tokenCount: 410,
+        turnNumber: 1,
+        isCheckpoint: false,
+        createdAt: new Date(Date.now() - 3600000),
+      },
+      {
+        id: 'msg-r2-2',
+        roomId: r2Id,
+        senderRole: 'DevOps Delta',
+        senderName: 'DevOps Delta',
+        content: 'Confirmed. Database connections are restricted to SSL-required endpoints. Session paused waiting for Human Director confirmation.',
+        tokenCount: 480,
+        turnNumber: 2,
+        isCheckpoint: true,
+        createdAt: new Date(Date.now() - 1800000),
+      }
+    ]);
+    const r2Workspace = new Map<string, any>();
+    r2Workspace.set('task_list', {
+      id: 'art-r2-tasks',
+      roomId: r2Id,
+      key: 'task_list',
+      title: 'Security Audit Checkpoints',
+      itemType: 'task_list',
+      value: [
+        { id: 'sec-1', title: 'Verify AES-256-GCM encryption at-rest', status: 'done', assignedTo: 'Auditor Gamma' },
+        { id: 'sec-2', title: 'Audit SSL connection certificates & DNS routing', status: 'done', assignedTo: 'DevOps Delta' },
+        { id: 'sec-3', title: 'Simulate packet injection and DDoS attack surface', status: 'todo', assignedTo: 'Auditor Gamma' }
+      ],
+      updatedBy: 'DevOps Delta',
+      updatedAt: new Date(),
+    });
+    this.workspaceItems.set(r2Id, r2Workspace);
+    this.safetyEvents.set(r2Id, [
+      {
+        id: 'safe-r2-1',
+        roomId: r2Id,
+        type: 'CHECKPOINT_WAITING',
+        detail: 'Checkpoint reached: Waiting for Human Director to review security audit checklist before proceeding.',
+        turn: 2,
+        createdAt: new Date(Date.now() - 1800000),
+      }
+    ]);
   }
 }
 

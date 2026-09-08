@@ -9,7 +9,7 @@ export type SafetyEventType =
   | 'API_KEY_REVOKED'
   | 'ERROR_HALT';
 
-export type ProviderType = 'OPENAI' | 'ANTHROPIC' | 'GOOGLE' | 'CUSTOM_GATEWAY';
+export type ProviderType = 'OPENAI' | 'ANTHROPIC' | 'GOOGLE' | 'CUSTOM_GATEWAY' | 'SIMULATED';
 
 export interface SafetyConfig {
   repetitionThreshold: number; // e.g. 0.85 (85%)

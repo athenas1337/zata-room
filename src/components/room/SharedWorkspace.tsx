@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { WorkspaceItemDTO, SafetyEventDTO } from '@/types';
-import { CheckSquare, FileCode, Award, ShieldAlert, Clock, UserCheck, AlertCircle } from 'lucide-react';
+import { CheckSquare, FileCode, Award, ShieldAlert, Plus, Check, Clock, UserCheck } from 'lucide-react';
 
 interface SharedWorkspaceProps {
   roomId: string;
@@ -17,6 +17,9 @@ export default function SharedWorkspace({
   safetyEvents,
 }: SharedWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'tasks' | 'scratchpad' | 'decisions' | 'safety'>('tasks');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Extract task list item
   const taskListItem = workspaceItems.find(i => i.key === 'task_list');
@@ -30,6 +33,71 @@ export default function SharedWorkspace({
   const decisionItem = workspaceItems.find(i => i.key === 'decision_log');
   const decisions: Array<{ id: string; title: string; rationale: string; by: string; timestamp: string }> =
     Array.isArray(decisionItem?.value) ? (decisionItem.value as any) : [];
+
+  const handleToggleTaskStatus = async (taskId: string) => {
+    const nextStatusMap: Record<string, 'todo' | 'in_progress' | 'done'> = {
+      todo: 'in_progress',
+      in_progress: 'done',
+      done: 'todo',
+    };
+
+    const updatedTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return { ...t, status: nextStatusMap[t.status] || 'todo' };
+      }
+      return t;
+    });
+
+    try {
+      await fetch(`/api/rooms/${roomId}/workspace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'task_list',
+          title: 'Project Task Board',
+          value: updatedTasks,
+          itemType: 'task_list',
+          updatedBy: 'Human Director',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update task status:', err);
+    }
+  };
+
+  const handleAddNewTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || isSaving) return;
+
+    const newTask = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      status: 'todo' as const,
+      assignedTo: 'Human Director',
+    };
+
+    const updatedTasks = [...tasks, newTask];
+    setIsSaving(true);
+    try {
+      await fetch(`/api/rooms/${roomId}/workspace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'task_list',
+          title: 'Project Task Board',
+          value: updatedTasks,
+          itemType: 'task_list',
+          updatedBy: 'Human Director',
+        }),
+      });
+      setNewTaskTitle('');
+      setIsAddingTask(false);
+    } catch (err) {
+      console.error('Failed to add task:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-950/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-xl">
@@ -92,23 +160,63 @@ export default function SharedWorkspace({
         {activeTab === 'tasks' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Live Shared Task Board
-              </span>
-              <span className="text-[11px] text-slate-500">Auto-updated by Agents via tool calls</span>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Live Shared Task Board
+                </span>
+                <p className="text-[10px] text-slate-500">Click any status badge to cycle: todo &rarr; in progress &rarr; done</p>
+              </div>
+
+              <button
+                onClick={() => setIsAddingTask(!isAddingTask)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[11px] font-semibold transition"
+              >
+                <Plus className="h-3 w-3" />
+                <span>Add Task</span>
+              </button>
             </div>
+
+            {/* Inline Add Task Form */}
+            {isAddingTask && (
+              <form onSubmit={handleAddNewTask} className="p-3 rounded-xl bg-slate-900 border border-blue-600/50 space-y-2 animate-in fade-in duration-200">
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={e => setNewTaskTitle(e.target.value)}
+                  placeholder="Enter task description (e.g. Audit Redis failover threshold)..."
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-blue-500"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingTask(false)}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newTaskTitle.trim() || isSaving}
+                    className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold disabled:opacity-50"
+                  >
+                    Save Task
+                  </button>
+                </div>
+              </form>
+            )}
 
             {tasks.length === 0 ? (
               <p className="text-xs text-slate-500 text-center py-8">
-                No tasks created yet. Agents will create and claim tasks once the session starts.
+                No tasks created yet. Click &quot;Add Task&quot; above or start the session.
               </p>
             ) : (
               <div className="space-y-2">
                 {tasks.map(t => {
                   const statusBadge = {
-                    todo: 'bg-slate-800 text-slate-300 border-slate-700',
-                    in_progress: 'bg-blue-950/80 text-blue-300 border-blue-700/60',
-                    done: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60',
+                    todo: 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700',
+                    in_progress: 'bg-blue-950/80 text-blue-300 border-blue-700/60 hover:bg-blue-900',
+                    done: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60 hover:bg-emerald-900',
                   }[t.status] || 'bg-slate-800 text-slate-300 border-slate-700';
 
                   return (
@@ -117,7 +225,7 @@ export default function SharedWorkspace({
                       className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 flex items-start justify-between gap-3 shadow-sm hover:border-slate-700 transition"
                     >
                       <div className="space-y-1">
-                        <p className={`text-xs font-medium ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-200'}`}>
+                        <p className={`text-xs font-medium ${t.status === 'done' ? 'line-through text-slate-500' : 'text-slate-200'}`}>
                           {t.title}
                         </p>
                         {t.assignedTo && (
@@ -128,9 +236,13 @@ export default function SharedWorkspace({
                         )}
                       </div>
 
-                      <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold border ${statusBadge}`}>
+                      <button
+                        onClick={() => handleToggleTaskStatus(t.id)}
+                        className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-semibold border transition cursor-pointer select-none active:scale-95 ${statusBadge}`}
+                        title="Click to advance status"
+                      >
                         {t.status.replace('_', ' ')}
-                      </span>
+                      </button>
                     </div>
                   );
                 })}

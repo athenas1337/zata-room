@@ -30,6 +30,7 @@ enum ProviderType {
   ANTHROPIC
   GOOGLE
   CUSTOM_GATEWAY
+  SIMULATED
 }
 
 model User {
