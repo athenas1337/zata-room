@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ProviderType } from '@/types';
-import { Shield, Key, Sparkles, Check, AlertCircle, Bot, Sliders } from 'lucide-react';
+import { ProviderType, RoleArchetype } from '@/types';
+import { Shield, Key, Sparkles, Check, AlertCircle, Bot, Sliders, Code, Terminal, Cpu, Database, Eye, BookOpen, UserPlus, Palette } from 'lucide-react';
+import { soundManager } from '@/lib/sound';
 
 interface RoleConfigModalProps {
   roomId: string;
@@ -12,30 +13,96 @@ interface RoleConfigModalProps {
   existingCount: number;
 }
 
-const ROLE_TEMPLATES = [
+export const RICH_ROLE_ARCHETYPES: RoleArchetype[] = [
   {
+    id: 'lead-architect',
+    category: 'Engineering',
     label: 'Lead Architect & Planner',
     agentName: 'Architect Alpha',
     avatarColor: '#3b82f6',
+    description: 'Decomposes complex goals, establishes system specifications and interface contracts.',
     systemPrompt: `You are the Lead Architect. Your responsibility is to analyze requirements, decompose the project goal into modular tasks, write clear specifications in the shared workspace, and guide the implementation. When agreeing with proposals, substantiate why and assign concrete tasks.`,
   },
   {
-    label: 'Senior Software Engineer & Coder',
+    id: 'autonomous-coder',
+    category: 'Engineering',
+    label: 'Senior Autonomous Coder',
     agentName: 'Coder Beta',
     avatarColor: '#10b981',
-    systemPrompt: `You are the Senior Software Engineer. You write clean, robust code snippets and artifacts in the shared scratchpad. You review architecture proposals for technical feasibility, spot edge cases, and implement concrete solutions.`,
+    description: 'Generates robust fullstack code, implements algorithms, creates workspace files.',
+    systemPrompt: `You are the Senior Software Engineer. You write clean, robust code snippets and create virtual files in the Antigravity VFS. You review architecture proposals for technical feasibility, spot edge cases, and run terminal commands to verify syntax and functionality.`,
   },
   {
+    id: 'sre-devops',
+    category: 'Engineering',
+    label: 'SRE & DevOps Engineer',
+    agentName: 'DevOps Titan',
+    avatarColor: '#06b6d4',
+    description: 'Designs CI/CD pipelines, Docker configs, serverless deployment scripts, and metrics.',
+    systemPrompt: `You are the SRE & DevOps Cloud Engineer. You architect scalable cloud setups, optimize build times, configure containerization, and ensure zero-downtime fault tolerance across microservices.`,
+  },
+  {
+    id: 'db-architect',
+    category: 'Engineering',
+    label: 'Database & Data Architect',
+    agentName: 'Data Vega',
+    avatarColor: '#8b5cf6',
+    description: 'Designs Prisma schemas, PostgreSQL relational queries, indexing, and BigQuery ELT.',
+    systemPrompt: `You are the Database and Storage Architect. You design normalized database schemas, write efficient SQL queries, ensure data consistency, prevent race conditions, and optimize database indexing.`,
+  },
+  {
+    id: 'security-critic',
+    category: 'Quality & Security',
     label: 'Security Auditor & Critic',
     agentName: 'Auditor Gamma',
     avatarColor: '#f43f5e',
+    description: 'Audits code for OWASP vulnerabilities, infinite loops, memory leaks, and secret leakage.',
     systemPrompt: `You are the Security Auditor & Critic. You rigorously evaluate all proposed architectures, code snippets, and logic for potential vulnerabilities, infinite loops, and edge cases. You challenge unfounded assumptions constructively.`,
   },
   {
-    label: 'Research & Documentation Specialist',
-    agentName: 'Researcher Delta',
-    avatarColor: '#8b5cf6',
-    systemPrompt: `You are the Research Specialist. You synthesize findings, document key decisions in the decision log, create structured summaries, and ensure all deliverables meet high standards of clarity and completeness.`,
+    id: 'qa-specialist',
+    category: 'Quality & Security',
+    label: 'QA & Test Automation Specialist',
+    agentName: 'Tester Sigma',
+    avatarColor: '#f59e0b',
+    description: 'Writes unit tests (Jest/Vitest), integration suites, fuzz tests, and edge case coverage.',
+    systemPrompt: `You are the QA and Test Automation Specialist. You ensure comprehensive test coverage, write unit tests with clear assertions, identify boundary condition bugs, and run virtual test suites to verify quality.`,
+  },
+  {
+    id: 'ui-designer',
+    category: 'Product & Design',
+    label: 'UI/UX Cyber-Designer',
+    agentName: 'Designer Nova',
+    avatarColor: '#ec4899',
+    description: 'Focuses on visual hierarchy, Tailwind styling, micro-animations, and fluid UX.',
+    systemPrompt: `You are the UI/UX Cyber-Designer. You design sleek, intuitive interfaces with modern cyber-glassmorphic styling, optimal visual contrast, responsive layouts, and delightful interactive states.`,
+  },
+  {
+    id: 'product-pm',
+    category: 'Product & Design',
+    label: 'Product Strategist & PM',
+    agentName: 'PM Orion',
+    avatarColor: '#eab308',
+    description: 'Defines user stories, acceptance criteria, milestone prioritization, and sprint scope.',
+    systemPrompt: `You are the Product Strategist & PM. You keep the collaboration aligned with user needs, prioritize high-impact requirements, maintain sprint scope boundaries, and track task completion against the overarching goal.`,
+  },
+  {
+    id: 'ai-scientist',
+    category: 'Research',
+    label: 'AI & ML Research Scientist',
+    agentName: 'Scientist Nexus',
+    avatarColor: '#6366f1',
+    description: 'Specializes in prompt engineering, embeddings, RAG pipelines, and agent coordination.',
+    systemPrompt: `You are the AI & ML Research Scientist. You optimize reasoning structures, model evaluation frameworks, agentic memory retrieval, and verify prompt engineering efficiency.`,
+  },
+  {
+    id: 'tech-writer',
+    category: 'Research',
+    label: 'Technical Documentation Writer',
+    agentName: 'Scribe Delta',
+    avatarColor: '#14b8a6',
+    description: 'Synthesizes decision logs, generates API specs, README guides, and changelogs.',
+    systemPrompt: `You are the Technical Documentation Writer. You synthesize discussions into crystal-clear documentation, maintain architecture decision records (ADRs), generate API docs, and write comprehensive summaries.`,
   },
 ];
 
@@ -54,8 +121,9 @@ export default function RoleConfigModal({
   onParticipantAdded,
   existingCount,
 }: RoleConfigModalProps) {
-  const defaultTemplate = ROLE_TEMPLATES[existingCount % ROLE_TEMPLATES.length];
+  const defaultTemplate = RICH_ROLE_ARCHETYPES[existingCount % RICH_ROLE_ARCHETYPES.length];
 
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [agentName, setAgentName] = useState(defaultTemplate.agentName);
   const [roleLabel, setRoleLabel] = useState(defaultTemplate.label);
   const [avatarColor, setAvatarColor] = useState(defaultTemplate.avatarColor);
@@ -71,11 +139,12 @@ export default function RoleConfigModal({
 
   if (!isOpen) return null;
 
-  const handleApplyTemplate = (template: typeof ROLE_TEMPLATES[0]) => {
-    setRoleLabel(template.label);
-    setAgentName(template.agentName);
-    setAvatarColor(template.avatarColor);
-    setSystemPrompt(template.systemPrompt);
+  const handleApplyTemplate = (tmpl: RoleArchetype) => {
+    soundManager.playClick();
+    setRoleLabel(tmpl.label);
+    setAgentName(tmpl.agentName);
+    setAvatarColor(tmpl.avatarColor);
+    setSystemPrompt(tmpl.systemPrompt);
   };
 
   const handleProviderChange = (p: ProviderType) => {
@@ -109,8 +178,11 @@ export default function RoleConfigModal({
       });
       const data = await res.json();
       setTestResult(data);
+      if (data.valid) soundManager.playCheckpoint();
+      else soundManager.playStop();
     } catch (err: any) {
       setTestResult({ valid: false, error: err.message || 'Validation request failed' });
+      soundManager.playStop();
     } finally {
       setIsTesting(false);
     }
@@ -147,18 +219,25 @@ export default function RoleConfigModal({
         throw new Error(data.error || 'Failed to add participant');
       }
 
+      soundManager.playCheckpoint();
       await onParticipantAdded();
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to save participant.');
+      soundManager.playStop();
     } finally {
       setIsSaving(false);
     }
   };
 
+  const filteredTemplates =
+    categoryFilter === 'All'
+      ? RICH_ROLE_ARCHETYPES
+      : RICH_ROLE_ARCHETYPES.filter((t) => t.category === categoryFilter);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="max-w-2xl w-full bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="max-w-3xl w-full bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -167,7 +246,7 @@ export default function RoleConfigModal({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Configure AI Agent Participant</h2>
-              <p className="text-xs text-slate-400">Keys encrypted at-rest with AES-256-GCM. Never shared.</p>
+              <p className="text-xs text-slate-400">10+ Specialized Role Archetypes &bull; AES-256-GCM Encrypted</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-lg">✕</button>
@@ -183,13 +262,15 @@ export default function RoleConfigModal({
             </div>
           )}
 
-          {/* Quick Role Templates */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
+          {/* Role Archetypes Selector */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="font-semibold text-slate-300 flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Select Preset Persona Template:</span>
+                <span>Select Agent Role Archetype:</span>
               </label>
+
+              {/* Demo Key Shortcut */}
               <button
                 type="button"
                 onClick={() => {
@@ -197,6 +278,7 @@ export default function RoleConfigModal({
                   setModelName('zata-simulation-v1');
                   setApiKey('demo-mock-key');
                   setTestResult({ valid: true });
+                  soundManager.playClick();
                 }}
                 className="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[11px] font-semibold text-emerald-300 transition flex items-center gap-1"
                 title="Fill with simulated agent credentials for instant testing without API cost"
@@ -204,60 +286,109 @@ export default function RoleConfigModal({
                 ✨ Fill Free Demo Key
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {ROLE_TEMPLATES.map((tmpl, i) => (
+
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1">
+              {['All', 'Engineering', 'Quality & Security', 'Product & Design', 'Research'].map((cat) => (
                 <button
-                  key={i}
+                  key={cat}
                   type="button"
-                  onClick={() => handleApplyTemplate(tmpl)}
-                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-blue-500/60 hover:bg-slate-800/50 text-left transition flex items-center gap-2.5"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                    categoryFilter === cat
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
                 >
-                  <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tmpl.avatarColor }} />
-                  <div>
-                    <div className="font-semibold text-slate-200 text-xs">{tmpl.label}</div>
-                    <div className="text-[10px] text-slate-400">{tmpl.agentName}</div>
-                  </div>
+                  {cat}
                 </button>
               ))}
             </div>
+
+            {/* Archetypes Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+              {filteredTemplates.map((tmpl) => {
+                const isSelected = roleLabel === tmpl.label;
+                return (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    onClick={() => handleApplyTemplate(tmpl)}
+                    className={`p-2.5 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-950/40 text-blue-200'
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-800/40 text-slate-300'
+                    }`}
+                  >
+                    <span
+                      className="h-3.5 w-3.5 rounded-full shrink-0 mt-0.5"
+                      style={{ backgroundColor: tmpl.avatarColor }}
+                    />
+                    <div className="truncate">
+                      <div className="font-semibold text-white text-xs truncate">{tmpl.label}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{tmpl.description}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Agent Identity */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-400 mb-1 font-medium">Agent Name</label>
-              <input
-                type="text"
-                value={agentName}
-                onChange={e => setAgentName(e.target.value)}
-                placeholder="e.g. Architect Alpha"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
-                required
-              />
+          {/* Agent Identity & Custom Role Builder */}
+          <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+            <div className="font-semibold text-slate-300 flex items-center gap-1.5">
+              <Sliders className="h-3.5 w-3.5 text-blue-400" />
+              <span>Identity &amp; Persona Customizer</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Agent Name</label>
+                <input
+                  type="text"
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="e.g. Architect Alpha"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Role Title</label>
+                <input
+                  type="text"
+                  value={roleLabel}
+                  onChange={(e) => setRoleLabel(e.target.value)}
+                  placeholder="e.g. Lead Architect"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Avatar Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={avatarColor}
+                    onChange={(e) => setAvatarColor(e.target.value)}
+                    className="h-8 w-12 rounded bg-slate-900 border border-slate-700 cursor-pointer"
+                  />
+                  <span className="font-mono text-xs text-slate-300">{avatarColor}</span>
+                </div>
+              </div>
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Role Label</label>
-              <input
-                type="text"
-                value={roleLabel}
-                onChange={e => setRoleLabel(e.target.value)}
-                placeholder="e.g. Lead Architect"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
-                required
+              <label className="block text-slate-400 mb-1 font-medium">System Prompt Instructions</label>
+              <textarea
+                rows={3}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="w-full p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 font-mono text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
               />
             </div>
-          </div>
-
-          {/* System Prompt */}
-          <div>
-            <label className="block text-slate-400 mb-1 font-medium">System Instructions / Persona Prompt</label>
-            <textarea
-              rows={4}
-              value={systemPrompt}
-              onChange={e => setSystemPrompt(e.target.value)}
-              className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 font-mono text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
-            />
           </div>
 
           {/* AI Provider & Model */}
@@ -266,7 +397,7 @@ export default function RoleConfigModal({
               <label className="block text-slate-400 mb-1 font-medium">Provider</label>
               <select
                 value={provider}
-                onChange={e => handleProviderChange(e.target.value as ProviderType)}
+                onChange={(e) => handleProviderChange(e.target.value as ProviderType)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
               >
                 <option value="OPENAI">OpenAI (Official)</option>
@@ -282,9 +413,9 @@ export default function RoleConfigModal({
               <input
                 type="text"
                 value={modelName}
-                onChange={e => setModelName(e.target.value)}
+                onChange={(e) => setModelName(e.target.value)}
                 list="model-suggestions"
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500 font-mono"
                 required
               />
               <datalist id="model-suggestions">
@@ -295,21 +426,21 @@ export default function RoleConfigModal({
             </div>
           </div>
 
-          {/* Optional Base URL (For OpenRouter / Custom Gateway) */}
+          {/* Base URL for Custom Gateway */}
           {provider === 'CUSTOM_GATEWAY' && (
             <div>
               <label className="block text-slate-400 mb-1 font-medium">Custom Base URL</label>
               <input
                 type="text"
                 value={baseUrl}
-                onChange={e => setBaseUrl(e.target.value)}
+                onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder="https://openrouter.ai/api/v1 or http://localhost:11434/v1"
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
           )}
 
-          {/* API Key Input + Validation */}
+          {/* API Key Input */}
           <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <label className="font-semibold text-slate-300 flex items-center gap-1.5">
@@ -325,7 +456,7 @@ export default function RoleConfigModal({
               <input
                 type="password"
                 value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
+                onChange={(e) => setApiKey(e.target.value)}
                 placeholder="sk-..."
                 className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500 font-mono"
                 required

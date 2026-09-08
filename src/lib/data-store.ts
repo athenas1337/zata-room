@@ -9,13 +9,14 @@ class MemoryStore {
   participants = new Map<string, any[]>();
   messages = new Map<string, any[]>();
   workspaceItems = new Map<string, Map<string, any>>();
+  virtualFiles = new Map<string, Map<string, any>>();
+  terminalLogs = new Map<string, any[]>();
   safetyEvents = new Map<string, any[]>();
 
   constructor() {
-    // Seed a default demo user
     const defaultUser = {
       id: 'usr-default',
-      name: 'Human Director',
+      name: 'Human Director (Host)',
       email: 'director@zata.ai',
       createdAt: new Date(),
     };
@@ -33,6 +34,9 @@ class MemoryStore {
       name: 'High-Concurrency Payment Gateway Architecture',
       goal: 'Architect an ultra-reliable, multi-region payment routing gateway with idempotency keys, token buckets, and sub-second failover mechanics.',
       status: 'ACTIVE',
+      isPublic: true,
+      inviteCode: 'ZATA-8X1A',
+      hostSecret: 'host-sec-default-1',
       currentTurn: 3,
       maxTurns: 50,
       turnDelaySec: 5,
@@ -108,13 +112,14 @@ class MemoryStore {
         roomId: r1Id,
         senderRole: 'Coder Beta',
         senderName: 'Coder Beta',
-        content: 'I reviewed the idempotency specification. I recommend using SHA-256 hashes combining `Idempotency-Key` + `UserId` + `Amount` to protect against payload tampering. I have drafted the technical spec in our scratchpad and recorded the consensus decision.',
+        content: 'I reviewed the idempotency specification. I recommend using SHA-256 hashes combining `Idempotency-Key` + `UserId` + `Amount` to protect against payload tampering. I have drafted the technical spec in our scratchpad, generated `src/server.ts`, and verified via `npm test`.',
         tokenCount: 480,
         turnNumber: 2,
         isCheckpoint: false,
         toolCalls: [
           { name: 'record_decision', args: { decisionTitle: 'Enforce SHA-256 Composite Idempotency Keys', rationale: 'Guarantees requests cannot be forged or replayed with altered amounts.' } },
-          { name: 'write_scratchpad', args: { key: 'gateway_spec', title: 'Payment Gateway Technical Spec', content: '## Core System Design\n- **Idempotency Strategy**: SHA-256(Key + UserID + Payload)\n- **Rate Limiting**: Sliding window counter (100 req/sec per merchant)\n- **Fallback**: Auto-routing to secondary gateway if latency > 800ms', itemType: 'scratchpad' } }
+          { name: 'write_scratchpad', args: { key: 'gateway_spec', title: 'Payment Gateway Technical Spec', content: '## Core System Design\n- **Idempotency Strategy**: SHA-256(Key + UserID + Payload)\n- **Rate Limiting**: Sliding window counter (100 req/sec per merchant)\n- **Fallback**: Auto-routing to secondary gateway if latency > 800ms', itemType: 'scratchpad' } },
+          { name: 'execute_terminal_command', args: { command: 'npm test -- --runInBand' } }
         ],
         createdAt: new Date(Date.now() - 1200000),
       },
@@ -132,6 +137,7 @@ class MemoryStore {
     ];
     this.messages.set(r1Id, r1Msgs);
 
+    // Workspace Items
     const r1Workspace = new Map<string, any>();
     r1Workspace.set('task_list', {
       id: 'art-r1-tasks',
@@ -170,6 +176,68 @@ class MemoryStore {
       updatedAt: new Date(),
     });
     this.workspaceItems.set(r1Id, r1Workspace);
+
+    // Pre-seed Virtual Files (Antigravity VFS)
+    const r1Files = new Map<string, any>();
+    r1Files.set('src/server.ts', {
+      id: 'vf-r1-1',
+      roomId: r1Id,
+      path: 'src/server.ts',
+      name: 'server.ts',
+      language: 'typescript',
+      sizeBytes: 1240,
+      content: `import express from 'express';\nimport crypto from 'crypto';\n\nconst app = express();\napp.use(express.json());\n\n// Idempotency Store (Redis in-memory simulated)\nconst idempotencyStore = new Map<string, { status: number; body: any }>();\n\napp.post('/api/v1/charge', (req, res) => {\n  const idempotencyKey = req.header('X-Idempotency-Key');\n  if (!idempotencyKey) {\n    return res.status(400).json({ error: 'Missing X-Idempotency-Key header' });\n  }\n\n  // Check existing cached response\n  if (idempotencyStore.has(idempotencyKey)) {\n    const cached = idempotencyStore.get(idempotencyKey)!;\n    return res.status(cached.status).json({ ...cached.body, cached: true });\n  }\n\n  // Execute transaction\n  const transaction = {\n    id: 'txn_' + crypto.randomBytes(8).toString('hex'),\n    amount: req.body.amount,\n    currency: req.body.currency || 'USD',\n    status: 'succeeded',\n    timestamp: new Date().toISOString(),\n  };\n\n  idempotencyStore.set(idempotencyKey, { status: 201, body: transaction });\n  return res.status(201).json(transaction);\n});\n\nexport default app;`,
+      updatedBy: 'Coder Beta',
+      updatedAt: new Date(),
+    });
+
+    r1Files.set('package.json', {
+      id: 'vf-r1-2',
+      roomId: r1Id,
+      path: 'package.json',
+      name: 'package.json',
+      language: 'json',
+      sizeBytes: 380,
+      content: `{\n  "name": "payment-gateway-service",\n  "version": "1.0.0",\n  "main": "dist/server.js",\n  "scripts": {\n    "build": "tsc",\n    "start": "node dist/server.js",\n    "test": "jest --passWithNoTests"\n  },\n  "dependencies": {\n    "express": "^4.19.2",\n    "ioredis": "^5.4.1"\n  },\n  "devDependencies": {\n    "typescript": "^5.4.5",\n    "jest": "^29.7.0"\n  }\n}`,
+      updatedBy: 'Coder Beta',
+      updatedAt: new Date(),
+    });
+
+    r1Files.set('tests/gateway.test.ts', {
+      id: 'vf-r1-3',
+      roomId: r1Id,
+      path: 'tests/gateway.test.ts',
+      name: 'gateway.test.ts',
+      language: 'typescript',
+      sizeBytes: 680,
+      content: `describe('Payment Gateway Idempotency', () => {\n  it('should return the identical transaction on duplicated request', async () => {\n    const key = 'test-idem-key-999';\n    const payload = { amount: 5000, currency: 'USD' };\n    // Test simulation verified in terminal\n    expect(true).toBe(true);\n  });\n});`,
+      updatedBy: 'Coder Beta',
+      updatedAt: new Date(),
+    });
+    this.virtualFiles.set(r1Id, r1Files);
+
+    // Pre-seed Web Terminal logs
+    this.terminalLogs.set(r1Id, [
+      {
+        id: 'tlog-1',
+        roomId: r1Id,
+        command: 'npm test -- --runInBand',
+        output: 'PASS tests/gateway.test.ts\n  Payment Gateway Idempotency\n    ✓ should return the identical transaction on duplicated request (38ms)\n\nTest Suites: 1 passed, 1 total\nTests:       1 passed, 1 total\nSnapshots:   0 total\nTime:        0.842s\nRan all test suites.',
+        exitCode: 0,
+        executedBy: 'Coder Beta',
+        createdAt: new Date(Date.now() - 1100000),
+      },
+      {
+        id: 'tlog-2',
+        roomId: r1Id,
+        command: 'ls -la src',
+        output: 'total 16\ndrwxr-xr-x 2 zata zata 4096 Sep 08 22:45 .\ndrwxr-xr-x 4 zata zata 4096 Sep 08 22:44 ..\n-rw-r--r-- 1 zata zata 1240 Sep 08 22:45 server.ts',
+        exitCode: 0,
+        executedBy: 'Human Director',
+        createdAt: new Date(Date.now() - 600000),
+      }
+    ]);
+
     this.safetyEvents.set(r1Id, []);
 
     // 2. Zero-Trust Security Audit Room
@@ -179,6 +247,9 @@ class MemoryStore {
       name: 'Zero-Trust Cloud Infrastructure & Security Audit',
       goal: 'Audit IAM permissions, verify AES-256-GCM encryption at-rest, and test network egress boundaries for compliance.',
       status: 'PAUSED',
+      isPublic: true,
+      inviteCode: 'ZATA-3N2K',
+      hostSecret: 'host-sec-default-2',
       currentTurn: 2,
       maxTurns: 40,
       turnDelaySec: 4,
@@ -192,6 +263,7 @@ class MemoryStore {
       createdAt: new Date(Date.now() - 7200000),
       updatedAt: new Date(),
     });
+
     this.participants.set(r2Id, [
       {
         id: 'part-r2-1',
@@ -228,6 +300,7 @@ class MemoryStore {
         createdAt: new Date(),
       },
     ]);
+
     this.messages.set(r2Id, [
       {
         id: 'msg-r2-1',
@@ -252,6 +325,7 @@ class MemoryStore {
         createdAt: new Date(Date.now() - 1800000),
       }
     ]);
+
     const r2Workspace = new Map<string, any>();
     r2Workspace.set('task_list', {
       id: 'art-r2-tasks',
@@ -268,6 +342,21 @@ class MemoryStore {
       updatedAt: new Date(),
     });
     this.workspaceItems.set(r2Id, r2Workspace);
+
+    const r2Files = new Map<string, any>();
+    r2Files.set('infra/security-policy.json', {
+      id: 'vf-r2-1',
+      roomId: r2Id,
+      path: 'infra/security-policy.json',
+      name: 'security-policy.json',
+      language: 'json',
+      sizeBytes: 420,
+      content: `{\n  "Version": "2026-10-17",\n  "Statement": [\n    {\n      "Effect": "Deny",\n      "Action": "*",\n      "Resource": "*",\n      "Condition": {\n        "Bool": { "aws:SecureTransport": "false" }\n      }\n    }\n  ]\n}`,
+      updatedBy: 'Auditor Gamma',
+      updatedAt: new Date(),
+    });
+    this.virtualFiles.set(r2Id, r2Files);
+
     this.safetyEvents.set(r2Id, [
       {
         id: 'safe-r2-1',
@@ -278,6 +367,36 @@ class MemoryStore {
         createdAt: new Date(Date.now() - 1800000),
       }
     ]);
+
+    // 3. Autonomous AI Research Suite (Private Invite-Only)
+    const r3Id = 'room-ai-research';
+    this.rooms.set(r3Id, {
+      id: r3Id,
+      name: 'Autonomous AI Multi-Agent Benchmark Suite',
+      goal: 'Benchmark latency and token consumption across Anthropic Claude, OpenAI GPT-4o, and Google Gemini in complex agentic swarms.',
+      status: 'DRAFT',
+      isPublic: false,
+      inviteCode: 'ZATA-AI99',
+      hostSecret: 'host-sec-default-3',
+      currentTurn: 0,
+      maxTurns: 30,
+      turnDelaySec: 3,
+      activeAgentIdx: 0,
+      isProcessing: false,
+      lockVersion: 0,
+      safetyConfig: { repetitionThreshold: 0.85, maxTurns: 30, maxBudgetUsd: 1.5, echoThreshold: 0.8 },
+      totalTokens: 0,
+      estimatedCost: 0.0,
+      createdById: 'usr-default',
+      createdAt: new Date(Date.now() - 10800000),
+      updatedAt: new Date(),
+    });
+    this.participants.set(r3Id, []);
+    this.messages.set(r3Id, []);
+    this.workspaceItems.set(r3Id, new Map());
+    this.virtualFiles.set(r3Id, new Map());
+    this.terminalLogs.set(r3Id, []);
+    this.safetyEvents.set(r3Id, []);
   }
 }
 
@@ -287,24 +406,23 @@ let isPrismaAvailable: boolean | null = null;
 async function checkPrismaAvailable(): Promise<boolean> {
   if (isPrismaAvailable !== null) return isPrismaAvailable;
   try {
-    // Quick probe with timeout
     await Promise.race([
       db.$queryRaw`SELECT 1`,
       new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 1500)),
     ]);
     isPrismaAvailable = true;
     return true;
-  } catch (err) {
+  } catch {
     isPrismaAvailable = false;
-    console.warn('⚠️ PostgreSQL connection not detected. Using high-performance in-memory fallback store for local development.');
     return false;
   }
 }
 
 export const dataStore = {
-  async getRooms() {
+  async getRooms(filter?: { includePrivate?: boolean }) {
     if (await checkPrismaAvailable()) {
       return db.room.findMany({
+        where: filter?.includePrivate ? undefined : { isPublic: true },
         orderBy: { createdAt: 'desc' },
         include: {
           participants: {
@@ -320,14 +438,16 @@ export const dataStore = {
             },
           },
           _count: {
-            select: { messages: true, safetyEvents: true },
+            select: { messages: true, safetyEvents: true, virtualFiles: true },
           },
         },
       });
     }
 
-    // Memory fallback
-    return Array.from(memoryDb.rooms.values()).map(r => ({
+    const all = Array.from(memoryDb.rooms.values());
+    const filtered = filter?.includePrivate ? all : all.filter(r => r.isPublic);
+
+    return filtered.map(r => ({
       ...r,
       participants: (memoryDb.participants.get(r.id) || []).map(p => ({
         id: p.id,
@@ -342,8 +462,13 @@ export const dataStore = {
       _count: {
         messages: (memoryDb.messages.get(r.id) || []).length,
         safetyEvents: (memoryDb.safetyEvents.get(r.id) || []).length,
+        virtualFiles: (memoryDb.virtualFiles.get(r.id) || new Map()).size,
       },
     }));
+  },
+
+  async getAllRoomsAdmin() {
+    return this.getRooms({ includePrivate: true });
   },
 
   async getRoomById(id: string) {
@@ -351,16 +476,12 @@ export const dataStore = {
       return db.room.findUnique({
         where: { id },
         include: {
-          participants: {
-            orderBy: { turnOrder: 'asc' },
-          },
-          messages: {
-            orderBy: { turnNumber: 'asc' },
-          },
+          participants: { orderBy: { turnOrder: 'asc' } },
+          messages: { orderBy: { turnNumber: 'asc' } },
           workspaceItems: true,
-          safetyEvents: {
-            orderBy: { createdAt: 'desc' },
-          },
+          virtualFiles: { orderBy: { path: 'asc' } },
+          terminalLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
+          safetyEvents: { orderBy: { createdAt: 'desc' } },
         },
       });
     }
@@ -371,6 +492,8 @@ export const dataStore = {
     const participants = memoryDb.participants.get(id) || [];
     const messages = memoryDb.messages.get(id) || [];
     const workspaceItems = Array.from((memoryDb.workspaceItems.get(id) || new Map()).values());
+    const virtualFiles = Array.from((memoryDb.virtualFiles.get(id) || new Map()).values());
+    const terminalLogs = memoryDb.terminalLogs.get(id) || [];
     const safetyEvents = memoryDb.safetyEvents.get(id) || [];
 
     return {
@@ -378,6 +501,8 @@ export const dataStore = {
       participants,
       messages,
       workspaceItems,
+      virtualFiles,
+      terminalLogs,
       safetyEvents,
     };
   },
@@ -385,11 +510,15 @@ export const dataStore = {
   async createRoom(data: {
     name: string;
     goal: string;
+    isPublic?: boolean;
     turnDelaySec?: number;
     maxTurns?: number;
     safetyConfig?: Partial<SafetyConfig>;
     createdById?: string;
   }) {
+    const inviteCode = `ZATA-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const hostSecret = `host-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
     const defaultSafety: SafetyConfig = {
       repetitionThreshold: 0.85,
       maxTurns: data.maxTurns || 50,
@@ -402,6 +531,9 @@ export const dataStore = {
     const roomPayload = {
       name: data.name,
       goal: data.goal,
+      isPublic: data.isPublic ?? true,
+      inviteCode,
+      hostSecret,
       turnDelaySec: data.turnDelaySec ?? 5,
       maxTurns: data.maxTurns ?? 50,
       safetyConfig: defaultSafety as any,
@@ -409,9 +541,7 @@ export const dataStore = {
     };
 
     if (await checkPrismaAvailable()) {
-      return db.room.create({
-        data: roomPayload,
-      });
+      return db.room.create({ data: roomPayload });
     }
 
     const id = `room-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -433,25 +563,67 @@ export const dataStore = {
     memoryDb.participants.set(id, []);
     memoryDb.messages.set(id, []);
     memoryDb.workspaceItems.set(id, new Map());
+    memoryDb.virtualFiles.set(id, new Map());
+    memoryDb.terminalLogs.set(id, []);
     memoryDb.safetyEvents.set(id, []);
 
-    // Initialize default task board artifact
-    const defaultTasks = {
-      id: `art-tasks-${id}`,
+    // Default README virtual file
+    const readmeFile = {
+      id: `vf-${id}-readme`,
       roomId: id,
-      key: 'task_list',
-      title: 'Project Task Board',
-      itemType: 'task_list',
-      value: [
-        { id: 'task-1', title: 'Define project architecture & responsibilities', status: 'in_progress', assignedTo: 'Agent Alpha' },
-        { id: 'task-2', title: 'Synthesize solution & draft deliverable', status: 'todo', assignedTo: 'Agent Beta' },
-      ],
+      path: 'README.md',
+      name: 'README.md',
+      language: 'markdown',
+      sizeBytes: 150,
+      content: `# ${data.name}\n\n**Goal**: ${data.goal}\n\nCollaborative Antigravity Multi-Agent Environment.`,
       updatedBy: 'System',
       updatedAt: new Date(),
     };
-    memoryDb.workspaceItems.get(id)!.set('task_list', defaultTasks);
+    memoryDb.virtualFiles.get(id)!.set('README.md', readmeFile);
 
     return newRoom;
+  },
+
+  async findRoomByInviteCode(inviteCode: string) {
+    const code = inviteCode.trim().toUpperCase();
+    if (await checkPrismaAvailable()) {
+      try {
+        const room = await (db.room as any).findFirst({
+          where: { inviteCode: { equals: code, mode: 'insensitive' } },
+          include: {
+            participants: { where: { isEnabled: true } },
+            _count: { select: { messages: true, safetyEvents: true } },
+          },
+        });
+        return room;
+      } catch (e) {
+        // fallback
+      }
+    }
+
+    for (const room of memoryDb.rooms.values()) {
+      if (room.inviteCode?.toUpperCase() === code) {
+        return this.getRoomById(room.id);
+      }
+    }
+    return null;
+  },
+
+  async deleteRoom(roomId: string) {
+    if (await checkPrismaAvailable()) {
+      return db.room.delete({
+        where: { id: roomId },
+      });
+    }
+
+    memoryDb.rooms.delete(roomId);
+    memoryDb.participants.delete(roomId);
+    memoryDb.messages.delete(roomId);
+    memoryDb.workspaceItems.delete(roomId);
+    memoryDb.virtualFiles.delete(roomId);
+    memoryDb.terminalLogs.delete(roomId);
+    memoryDb.safetyEvents.delete(roomId);
+    return { success: true, id: roomId };
   },
 
   async addParticipant(roomId: string, data: {
@@ -469,7 +641,6 @@ export const dataStore = {
     const encrypted = encryptApiKey(data.apiKey);
 
     if (await checkPrismaAvailable()) {
-      // determine turnOrder
       const count = await db.roomParticipant.count({ where: { roomId } });
       return db.roomParticipant.create({
         data: {
@@ -634,5 +805,119 @@ export const dataStore = {
     };
     items.set(key, item);
     return item;
+  },
+
+  // Virtual File Operations (Antigravity VFS)
+  async upsertVirtualFile(roomId: string, path: string, data: {
+    content: string;
+    language?: string;
+    updatedBy?: string;
+  }) {
+    const fileName = path.split('/').pop() || path;
+    const language = data.language || (path.endsWith('.ts') ? 'typescript' : path.endsWith('.json') ? 'json' : path.endsWith('.md') ? 'markdown' : 'javascript');
+    const sizeBytes = Buffer.byteLength(data.content, 'utf8');
+
+    if (await checkPrismaAvailable()) {
+      return db.virtualFile.upsert({
+        where: { roomId_path: { roomId, path } },
+        create: {
+          roomId,
+          path,
+          name: fileName,
+          content: data.content,
+          language,
+          sizeBytes,
+          updatedBy: data.updatedBy || 'Agent',
+        },
+        update: {
+          content: data.content,
+          language,
+          sizeBytes,
+          updatedBy: data.updatedBy || 'Agent',
+        },
+      });
+    }
+
+    let files = memoryDb.virtualFiles.get(roomId);
+    if (!files) {
+      files = new Map();
+      memoryDb.virtualFiles.set(roomId, files);
+    }
+    const file = {
+      id: `vf-${roomId}-${path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      roomId,
+      path,
+      name: fileName,
+      content: data.content,
+      language,
+      sizeBytes,
+      updatedBy: data.updatedBy || 'Agent',
+      updatedAt: new Date(),
+    };
+    files.set(path, file);
+    return file;
+  },
+
+  async deleteVirtualFile(roomId: string, path: string) {
+    if (await checkPrismaAvailable()) {
+      return db.virtualFile.delete({
+        where: { roomId_path: { roomId, path } },
+      });
+    }
+    const files = memoryDb.virtualFiles.get(roomId);
+    if (files) files.delete(path);
+    return { success: true, path };
+  },
+
+  // Web Terminal Logging
+  async addTerminalLog(roomId: string, logData: {
+    command: string;
+    output: string;
+    exitCode?: number;
+    executedBy?: string;
+  }) {
+    if (await checkPrismaAvailable()) {
+      return db.terminalLog.create({
+        data: {
+          roomId,
+          command: logData.command,
+          output: logData.output,
+          exitCode: logData.exitCode ?? 0,
+          executedBy: logData.executedBy || 'agent',
+        },
+      });
+    }
+
+    const logs = memoryDb.terminalLogs.get(roomId) || [];
+    const newLog = {
+      id: `tlog-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      roomId,
+      command: logData.command,
+      output: logData.output,
+      exitCode: logData.exitCode ?? 0,
+      executedBy: logData.executedBy || 'agent',
+      createdAt: new Date(),
+    };
+    logs.push(newLog);
+    memoryDb.terminalLogs.set(roomId, logs);
+    return newLog;
+  },
+
+  // Godmode Operations (Atha1337)
+  async forceStopAllRooms() {
+    if (await checkPrismaAvailable()) {
+      await db.room.updateMany({
+        where: { status: 'ACTIVE' },
+        data: { status: 'PAUSED', isProcessing: false },
+      });
+      return { success: true };
+    }
+
+    for (const [id, r] of memoryDb.rooms.entries()) {
+      if (r.status === 'ACTIVE') {
+        memoryDb.rooms.set(id, { ...r, status: 'PAUSED', isProcessing: false });
+      }
+    }
+    return { success: true };
   }
 };

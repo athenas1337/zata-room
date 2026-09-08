@@ -5,6 +5,7 @@ import { z } from 'zod';
 const createRoomSchema = z.object({
   name: z.string().min(1, 'Room name is required').max(120),
   goal: z.string().min(1, 'Project goal is required'),
+  isPublic: z.boolean().optional().default(true),
   turnDelaySec: z.number().int().min(1).max(60).default(5),
   maxTurns: z.number().int().min(5).max(200).default(50),
   safetyConfig: z.object({

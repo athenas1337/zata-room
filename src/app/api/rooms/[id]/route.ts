@@ -77,3 +77,44 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const godmodePass = req.headers.get('x-godmode-pass');
+    const hostSecret = req.headers.get('x-host-secret');
+
+    const room = await dataStore.getRoomById(id);
+    if (!room) {
+      return NextResponse.json({ success: false, error: 'Room not found' }, { status: 404 });
+    }
+
+    // Host or GodMode authorization check
+    const isAuthorized =
+      godmodePass === 'Atha1337' ||
+      !room.hostSecret ||
+      hostSecret === room.hostSecret;
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Only the Room Host or Developer GodMode can delete this room.' },
+        { status: 403 }
+      );
+    }
+
+    await dataStore.deleteRoom(id);
+
+    broadcastToRoom(id, {
+      type: 'STATUS_UPDATE',
+      data: { status: 'ARCHIVED', deleted: true },
+      timestamp: Date.now(),
+    });
+
+    return NextResponse.json({ success: true, message: 'Room deleted successfully' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

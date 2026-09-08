@@ -32,6 +32,7 @@ export interface ParticipantDTO {
   keyMask: string;
   baseUrl?: string | null;
   turnOrder: number;
+  isEnabled?: boolean;
   createdAt: string;
 }
 
@@ -60,6 +61,28 @@ export interface WorkspaceItemDTO {
   updatedAt: string;
 }
 
+export interface VirtualFileDTO {
+  id: string;
+  roomId: string;
+  path: string;
+  name: string;
+  content: string;
+  language: string;
+  sizeBytes: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface TerminalLogDTO {
+  id: string;
+  roomId: string;
+  command: string;
+  output: string;
+  exitCode: number;
+  executedBy: string;
+  createdAt: string;
+}
+
 export interface SafetyEventDTO {
   id: string;
   roomId: string;
@@ -74,6 +97,9 @@ export interface RoomDetailDTO {
   name: string;
   goal: string;
   status: RoomStatus;
+  isPublic: boolean;
+  inviteCode?: string | null;
+  isHost?: boolean;
   currentTurn: number;
   maxTurns: number;
   turnDelaySec: number;
@@ -86,6 +112,8 @@ export interface RoomDetailDTO {
   participants: ParticipantDTO[];
   messages: MessageDTO[];
   workspaceItems: WorkspaceItemDTO[];
+  virtualFiles: VirtualFileDTO[];
+  terminalLogs: TerminalLogDTO[];
   safetyEvents: SafetyEventDTO[];
   createdAt: string;
   updatedAt: string;
@@ -99,6 +127,9 @@ export interface SSEPayload {
     | 'COUNTDOWN'
     | 'SAFETY_EVENT'
     | 'WORKSPACE_UPDATE'
+    | 'FILE_UPDATE'
+    | 'TERMINAL_OUTPUT'
+    | 'GLOBAL_BROADCAST'
     | 'TURN_START'
     | 'ERROR';
   data: unknown;
@@ -114,4 +145,14 @@ export interface TurnExecutionResult {
   nextTurnIndex?: number;
   delayRemainingSec?: number;
   error?: string;
+}
+
+export interface RoleArchetype {
+  id: string;
+  category: 'Engineering' | 'Quality & Security' | 'Product & Design' | 'Research';
+  label: string;
+  agentName: string;
+  avatarColor: string;
+  description: string;
+  systemPrompt: string;
 }

@@ -1,22 +1,48 @@
 'use client';
 
 import React, { useState, useEffect, useRef, use } from 'react';
-import { RoomDetailDTO, MessageDTO, WorkspaceItemDTO, SafetyEventDTO, ParticipantDTO, RoomStatus, SafetyConfig } from '@/types';
+import {
+  RoomDetailDTO,
+  MessageDTO,
+  WorkspaceItemDTO,
+  SafetyEventDTO,
+  ParticipantDTO,
+  RoomStatus,
+  SafetyConfig,
+  VirtualFileDTO,
+  TerminalLogDTO,
+} from '@/types';
 import SafetyControlBar from '@/components/room/SafetyControlBar';
 import CountdownOverlay from '@/components/room/CountdownOverlay';
 import AgentChatView from '@/components/room/AgentChatView';
 import SharedWorkspace from '@/components/room/SharedWorkspace';
 import RoleConfigModal from '@/components/room/RoleConfigModal';
-import { Bot, Plus, AlertTriangle, ArrowLeft, RefreshCw, Layers, ShieldCheck } from 'lucide-react';
+import GodModeModal from '@/components/admin/GodModeModal';
+import { Bot, Plus, AlertTriangle, ArrowLeft, RefreshCw, Radio, Lock, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { soundManager } from '@/lib/sound';
 
 export default function RoomDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: roomId } = use(params);
+  const router = useRouter();
 
   const [room, setRoom] = useState<RoomDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isGodModeOpen, setIsGodModeOpen] = useState(false);
+
+  // Host & GodMode Status
+  const [isHost, setIsHost] = useState(false);
+  const [isGodMode, setIsGodMode] = useState(false);
+
+  // Global Broadcast Banner
+  const [globalBanner, setGlobalBanner] = useState<{ message: string; level: string; sender: string } | null>(null);
+
+  // Real-time Virtual Files and Terminal Logs
+  const [virtualFiles, setVirtualFiles] = useState<VirtualFileDTO[]>([]);
+  const [terminalLogs, setTerminalLogs] = useState<TerminalLogDTO[]>([]);
 
   // Real-time states
   const [thinkingAgent, setThinkingAgent] = useState<{
@@ -31,6 +57,37 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isExecutingStepRef = useRef(false);
 
+  // Check Host and GodMode permissions on client
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('zata_host_secrets');
+      if (stored) {
+        const map = JSON.parse(stored);
+        if (map[roomId]) {
+          setIsHost(true);
+        }
+      }
+      if (sessionStorage.getItem('zata_godmode_pass') === 'Atha1337') {
+        setIsGodMode(true);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [roomId]);
+
+  // Keyboard shortcut for Atha1337 Godmode: Ctrl + Shift + A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        soundManager.playCheckpoint();
+        setIsGodModeOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Fetch initial room data
   const fetchRoomData = async () => {
     try {
@@ -40,6 +97,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       if (!data.success) throw new Error(data.error || 'Failed to load room');
       setRoom(data.room);
       setCountdownTotal(data.room.turnDelaySec || 5);
+      setVirtualFiles(data.room.virtualFiles || []);
+      setTerminalLogs(data.room.terminalLogs || []);
     } catch (err: any) {
       setError(err.message || 'Error loading room data');
     } finally {
@@ -72,7 +131,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
       eventSource.onerror = () => {
         eventSource?.close();
-        // Reconnect after 3 seconds
         reconnectTimeout = setTimeout(connectSSE, 3000);
       };
     };
@@ -92,10 +150,12 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
     switch (type) {
       case 'AGENT_THINKING':
         setThinkingAgent(data);
+        soundManager.playTurnPing();
         break;
 
       case 'AGENT_MESSAGE':
         setThinkingAgent(null);
+        soundManager.playClick();
         setRoom((prev) => {
           if (!prev) return prev;
           const exists = prev.messages.some((m) => m.id === data.id);
@@ -111,6 +171,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         break;
 
       case 'STATUS_UPDATE':
+        if (data.deleted) {
+          soundManager.playStop();
+          alert('This room has been deleted.');
+          router.push('/');
+          return;
+        }
+
         setRoom((prev) => {
           if (!prev) return prev;
           return {
@@ -124,6 +191,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         });
         if (data.status === 'PAUSED' || data.status === 'COMPLETED') {
           clearDelayCountdown();
+          soundManager.playStop();
         }
         break;
 
@@ -142,6 +210,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         break;
 
       case 'SAFETY_EVENT':
+        soundManager.playStop();
         setRoom((prev) => {
           if (!prev) return prev;
           return {
@@ -149,6 +218,33 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             safetyEvents: [data, ...prev.safetyEvents],
           };
         });
+        break;
+
+      case 'FILE_UPDATE':
+        soundManager.playCheckpoint();
+        setVirtualFiles((prev) => {
+          if (data.deleted) {
+            return prev.filter((f) => f.path !== data.path);
+          }
+          const idx = prev.findIndex((f) => f.path === data.path);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = data;
+            return next;
+          }
+          return [...prev, data];
+        });
+        break;
+
+      case 'TERMINAL_OUTPUT':
+        soundManager.playClick();
+        setTerminalLogs((prev) => [...prev, data]);
+        break;
+
+      case 'GLOBAL_BROADCAST':
+        soundManager.playTurnPing();
+        setGlobalBanner(data);
+        setTimeout(() => setGlobalBanner(null), 8000);
         break;
     }
   };
@@ -191,7 +287,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
       if (!data.success) {
         if (data.haltReason) {
-          // Safety halt occurred
           clearDelayCountdown();
         }
       }
@@ -212,10 +307,23 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
     clearDelayCountdown();
     setThinkingAgent(null);
     try {
+      let hostSecret = '';
+      try {
+        const stored = localStorage.getItem('zata_host_secrets');
+        if (stored) {
+          const map = JSON.parse(stored);
+          hostSecret = map[roomId] || '';
+        }
+      } catch (e) {}
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (hostSecret) headers['x-host-secret'] = hostSecret;
+      if (isGodMode) headers['x-godmode-pass'] = 'Atha1337';
+
       await fetch(`/api/rooms/${roomId}/stop`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: 'Manual instant stop triggered by Human Director' }),
+        headers,
+        body: JSON.stringify({ reason: 'Manual instant stop triggered by Host/Developer' }),
       });
       setRoom((prev) => (prev ? { ...prev, status: 'PAUSED' } : prev));
     } catch (err) {
@@ -244,6 +352,13 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const handleSendDirectorMessage = async (content: string) => {
+    // Secret backdoor trigger in director input: if Atha types 'Atha1337', open Godmode!
+    if (content.trim() === 'Atha1337') {
+      soundManager.playCheckpoint();
+      setIsGodModeOpen(true);
+      return;
+    }
+
     try {
       await fetch(`/api/rooms/${roomId}/messages`, {
         method: 'POST',
@@ -316,8 +431,31 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       : null;
 
   return (
-    <div className="flex-1 flex flex-col max-w-[1700px] w-full mx-auto pb-8">
-      {/* Top Breadcrumb & Metadata Header */}
+    <div className="flex-1 flex flex-col max-w-[1750px] w-full mx-auto pb-8">
+      {/* Global Broadcast Banner */}
+      {globalBanner && (
+        <div
+          className={`mx-4 mt-2 p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs font-semibold animate-in slide-in-from-top duration-300 shadow-2xl ${
+            globalBanner.level === 'critical'
+              ? 'bg-red-950/90 border-red-700 text-red-200'
+              : globalBanner.level === 'warning'
+              ? 'bg-amber-950/90 border-amber-700 text-amber-200'
+              : 'bg-blue-950/90 border-blue-700 text-blue-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 animate-pulse shrink-0" />
+            <span>
+              <strong>[{globalBanner.sender}]:</strong> {globalBanner.message}
+            </span>
+          </div>
+          <button onClick={() => setGlobalBanner(null)} className="text-slate-400 hover:text-white text-xs">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Top Breadcrumb & Room Title Header */}
       <div className="px-4 py-3 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-3 bg-slate-950/40">
         <div className="flex items-center gap-3">
           <Link
@@ -327,17 +465,35 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-              <span>{room.name}</span>
-            </h1>
-            <p className="text-xs text-slate-400 line-clamp-1 max-w-xl">
-              Goal: {room.goal}
-            </p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <span>{room.name}</span>
+              </h1>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  room.isPublic
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/80'
+                    : 'bg-amber-950 text-amber-300 border border-amber-800/80'
+                }`}
+              >
+                {room.isPublic ? 'Public' : 'Invite Only'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 line-clamp-1 max-w-xl">Goal: {room.goal}</p>
           </div>
         </div>
 
-        {/* Participants Avatar Badges */}
+        {/* Participants Avatar Badges & Quick GodMode trigger */}
         <div className="flex items-center gap-2">
+          {/* Subtle Dev Trigger for Atha */}
+          <button
+            onClick={() => setIsGodModeOpen(true)}
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-amber-500/50 text-slate-500 hover:text-amber-400 text-[10px] font-mono transition"
+            title="Developer Superuser Console (Ctrl+Shift+A)"
+          >
+            <Zap className="h-3.5 w-3.5" />
+          </button>
+
           <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
             <span className="text-[11px] text-slate-400 font-medium">Agents ({room.participants.length}/2+):</span>
             <div className="flex items-center -space-x-1.5">
@@ -364,9 +520,10 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      {/* Sticky Anti-Infinite Loop Safety Control Bar */}
+      {/* Sticky Safety Control Bar with Host/Guest Authorization */}
       <SafetyControlBar
         roomId={roomId}
+        roomName={room.name}
         status={room.status}
         currentTurn={room.currentTurn}
         maxTurns={room.maxTurns}
@@ -376,9 +533,14 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         activeAgentName={nextAgent?.agentName}
         safetyConfig={room.safetyConfig}
         isProcessing={room.isProcessing}
+        isHost={isHost}
+        isGodMode={isGodMode}
+        inviteCode={room.inviteCode || undefined}
+        isPublic={room.isPublic}
         onStop={handleInstantStop}
         onResume={handleResumeLoop}
         onUpdateConfig={handleUpdateConfig}
+        onRoomDeleted={() => router.push('/')}
       />
 
       {/* Visual Delay Countdown Overlay */}
@@ -400,7 +562,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             <div>
               <div className="text-xs font-bold text-white">Minimum 2 Agents Required to Collaborate</div>
               <p className="text-xs text-slate-300">
-                Add at least two agents (each with their private API key) to begin autonomous turn-based collaboration.
+                Configure at least two AI agents (with their individual API keys or free demo keys) to commence autonomous pairing.
               </p>
             </div>
           </div>
@@ -413,10 +575,10 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* Main Split Layout: Chat View (Left) & Shared Workspace (Right) */}
-      <div className="flex-1 px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[580px]">
-        {/* Left Column: Real-time Group Chat View (7 cols) */}
-        <div className="lg:col-span-7 h-[680px]">
+      {/* Main Split Layout: Chat View (Left) & Antigravity VFS/Terminal Workspace (Right) */}
+      <div className="flex-1 px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[620px]">
+        {/* Left Column: Real-time Group Chat & Director Guidance (6 cols) */}
+        <div className="lg:col-span-6 h-[720px]">
           <AgentChatView
             roomId={roomId}
             messages={room.messages}
@@ -426,12 +588,17 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           />
         </div>
 
-        {/* Right Column: Shared Workspace & Safety Log (5 cols) */}
-        <div className="lg:col-span-5 h-[680px]">
+        {/* Right Column: Antigravity VFS + Terminal + Tasks + Decisions (6 cols) */}
+        <div className="lg:col-span-6 h-[720px]">
           <SharedWorkspace
             roomId={roomId}
             workspaceItems={room.workspaceItems}
             safetyEvents={room.safetyEvents}
+            virtualFiles={virtualFiles}
+            terminalLogs={terminalLogs}
+            isHost={isHost}
+            onFilesUpdated={fetchRoomData}
+            onTerminalExecuted={fetchRoomData}
           />
         </div>
       </div>
@@ -444,6 +611,9 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         onParticipantAdded={fetchRoomData}
         existingCount={room.participants.length}
       />
+
+      {/* Developer GodMode Modal (Atha1337) */}
+      <GodModeModal isOpen={isGodModeOpen} onClose={() => setIsGodModeOpen(false)} />
     </div>
   );
 }

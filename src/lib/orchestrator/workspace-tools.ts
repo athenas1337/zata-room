@@ -60,6 +60,42 @@ export const WORKSPACE_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: 'create_file',
+    description: 'Create a new code or configuration file in the virtual project directory (e.g. "src/server.ts", "package.json", "tests/auth.test.ts").',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path of the file, e.g. "src/index.ts"' },
+        content: { type: 'string', description: 'Full source code or file contents' },
+        language: { type: 'string', description: 'Language identifier e.g. "typescript", "json", "markdown", "python"' },
+      },
+      required: ['path', 'content'],
+    },
+  },
+  {
+    name: 'update_file',
+    description: 'Update the contents of an existing file in the virtual project directory.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path of the file to update' },
+        content: { type: 'string', description: 'New source code content' },
+      },
+      required: ['path', 'content'],
+    },
+  },
+  {
+    name: 'execute_terminal_command',
+    description: 'Execute a command in the interactive web terminal (e.g. "npm test", "ls -la", "cat package.json", "git status", "node dist/index.js").',
+    parameters: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'Shell command string to execute in virtual terminal' },
+      },
+      required: ['command'],
+    },
+  },
+  {
     name: 'request_human_checkpoint',
     description: 'Pause the automated loop and request human director review/approval before proceeding with a critical action.',
     parameters: {

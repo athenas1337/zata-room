@@ -60,3 +60,13 @@ export function broadcastToRoom(roomId: string, payload: SSEPayload) {
     clients.delete(stale);
   }
 }
+
+/**
+ * Broadcast an SSE payload to all active listeners across ALL rooms.
+ */
+export function broadcastToAllRooms(payload: SSEPayload) {
+  for (const roomId of Array.from(roomClients.keys())) {
+    broadcastToRoom(roomId, payload);
+  }
+}
+

@@ -1,47 +1,77 @@
 'use client';
 
 import React, { useState } from 'react';
-import { WorkspaceItemDTO, SafetyEventDTO } from '@/types';
-import { CheckSquare, FileCode, Award, ShieldAlert, Plus, Check, Clock, UserCheck } from 'lucide-react';
+import { WorkspaceItemDTO, SafetyEventDTO, VirtualFileDTO, TerminalLogDTO } from '@/types';
+import {
+  CheckSquare,
+  FileCode,
+  Award,
+  ShieldAlert,
+  Plus,
+  Check,
+  Clock,
+  UserCheck,
+  FolderTree,
+  Terminal,
+  Layers,
+} from 'lucide-react';
+import VirtualFileExplorer from './VirtualFileExplorer';
+import WebTerminal from './WebTerminal';
+import { soundManager } from '@/lib/sound';
 
 interface SharedWorkspaceProps {
   roomId: string;
   workspaceItems: WorkspaceItemDTO[];
   safetyEvents: SafetyEventDTO[];
-  onUpdateWorkspaceItem?: (key: string, value: any) => Promise<void>;
+  virtualFiles?: VirtualFileDTO[];
+  terminalLogs?: TerminalLogDTO[];
+  isHost?: boolean;
+  onFilesUpdated?: () => void;
+  onTerminalExecuted?: () => void;
 }
 
 export default function SharedWorkspace({
   roomId,
   workspaceItems,
   safetyEvents,
+  virtualFiles = [],
+  terminalLogs = [],
+  isHost = false,
+  onFilesUpdated,
+  onTerminalExecuted,
 }: SharedWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<'tasks' | 'scratchpad' | 'decisions' | 'safety'>('tasks');
+  const [activeTab, setActiveTab] = useState<'files' | 'terminal' | 'tasks' | 'scratchpad' | 'decisions' | 'safety'>('files');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Extract task list item
-  const taskListItem = workspaceItems.find(i => i.key === 'task_list');
+  const taskListItem = workspaceItems.find((i) => i.key === 'task_list');
   const tasks: Array<{ id: string; title: string; status: 'todo' | 'in_progress' | 'done'; assignedTo?: string }> =
     Array.isArray(taskListItem?.value) ? (taskListItem.value as any) : [];
 
   // Extract scratchpad items
-  const scratchpadItems = workspaceItems.filter(i => i.key !== 'task_list' && i.key !== 'decision_log');
+  const scratchpadItems = workspaceItems.filter((i) => i.key !== 'task_list' && i.key !== 'decision_log');
 
   // Extract decision log item
-  const decisionItem = workspaceItems.find(i => i.key === 'decision_log');
+  const decisionItem = workspaceItems.find((i) => i.key === 'decision_log');
   const decisions: Array<{ id: string; title: string; rationale: string; by: string; timestamp: string }> =
     Array.isArray(decisionItem?.value) ? (decisionItem.value as any) : [];
 
+  const handleTabChange = (tab: typeof activeTab) => {
+    soundManager.playClick();
+    setActiveTab(tab);
+  };
+
   const handleToggleTaskStatus = async (taskId: string) => {
+    soundManager.playClick();
     const nextStatusMap: Record<string, 'todo' | 'in_progress' | 'done'> = {
       todo: 'in_progress',
       in_progress: 'done',
       done: 'todo',
     };
 
-    const updatedTasks = tasks.map(t => {
+    const updatedTasks = tasks.map((t) => {
       if (t.id === taskId) {
         return { ...t, status: nextStatusMap[t.status] || 'todo' };
       }
@@ -78,6 +108,7 @@ export default function SharedWorkspace({
 
     const updatedTasks = [...tasks, newTask];
     setIsSaving(true);
+    soundManager.playCheckpoint();
     try {
       await fetch(`/api/rooms/${roomId}/workspace`, {
         method: 'POST',
@@ -104,8 +135,35 @@ export default function SharedWorkspace({
       {/* Tab Navigation */}
       <div className="px-3 py-2 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between overflow-x-auto gap-1">
         <div className="flex items-center gap-1">
+          {/* Virtual File Explorer Tab */}
           <button
-            onClick={() => setActiveTab('tasks')}
+            onClick={() => handleTabChange('files')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeTab === 'files'
+                ? 'bg-cyan-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <FolderTree className="h-3.5 w-3.5" />
+            <span>Files ({virtualFiles.length})</span>
+          </button>
+
+          {/* Web Terminal Tab */}
+          <button
+            onClick={() => handleTabChange('terminal')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeTab === 'terminal'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span>Terminal</span>
+          </button>
+
+          {/* Tasks Tab */}
+          <button
+            onClick={() => handleTabChange('tasks')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'tasks'
                 ? 'bg-blue-600 text-white shadow-md'
@@ -116,8 +174,9 @@ export default function SharedWorkspace({
             <span>Tasks ({tasks.length})</span>
           </button>
 
+          {/* Scratchpad Tab */}
           <button
-            onClick={() => setActiveTab('scratchpad')}
+            onClick={() => handleTabChange('scratchpad')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'scratchpad'
                 ? 'bg-blue-600 text-white shadow-md'
@@ -128,8 +187,9 @@ export default function SharedWorkspace({
             <span>Artifacts ({scratchpadItems.length})</span>
           </button>
 
+          {/* Decisions Tab */}
           <button
-            onClick={() => setActiveTab('decisions')}
+            onClick={() => handleTabChange('decisions')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'decisions'
                 ? 'bg-blue-600 text-white shadow-md'
@@ -140,8 +200,9 @@ export default function SharedWorkspace({
             <span>Decisions ({decisions.length})</span>
           </button>
 
+          {/* Safety Log Tab */}
           <button
-            onClick={() => setActiveTab('safety')}
+            onClick={() => handleTabChange('safety')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
               activeTab === 'safety'
                 ? 'bg-red-600 text-white shadow-md'
@@ -149,16 +210,40 @@ export default function SharedWorkspace({
             }`}
           >
             <ShieldAlert className="h-3.5 w-3.5" />
-            <span>Safety Log ({safetyEvents.length})</span>
+            <span>Safety ({safetyEvents.length})</span>
           </button>
         </div>
       </div>
 
       {/* Tab Contents */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 overflow-hidden min-h-0">
+        {/* TAB 0: VIRTUAL FILES (Antigravity VFS) */}
+        {activeTab === 'files' && (
+          <div className="h-full">
+            <VirtualFileExplorer
+              roomId={roomId}
+              files={virtualFiles}
+              onFilesUpdated={onFilesUpdated}
+              isHost={isHost}
+            />
+          </div>
+        )}
+
+        {/* TAB 0.5: WEB TERMINAL */}
+        {activeTab === 'terminal' && (
+          <div className="h-full">
+            <WebTerminal
+              roomId={roomId}
+              logs={terminalLogs}
+              onCommandExecuted={onTerminalExecuted}
+              isHost={isHost}
+            />
+          </div>
+        )}
+
         {/* TAB 1: TASKS */}
         {activeTab === 'tasks' && (
-          <div className="space-y-3">
+          <div className="p-4 h-full overflow-y-auto space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -182,7 +267,7 @@ export default function SharedWorkspace({
                 <input
                   type="text"
                   value={newTaskTitle}
-                  onChange={e => setNewTaskTitle(e.target.value)}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
                   placeholder="Enter task description (e.g. Audit Redis failover threshold)..."
                   className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-blue-500"
                   autoFocus
@@ -212,7 +297,7 @@ export default function SharedWorkspace({
               </p>
             ) : (
               <div className="space-y-2">
-                {tasks.map(t => {
+                {tasks.map((t) => {
                   const statusBadge = {
                     todo: 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700',
                     in_progress: 'bg-blue-950/80 text-blue-300 border-blue-700/60 hover:bg-blue-900',
@@ -253,7 +338,7 @@ export default function SharedWorkspace({
 
         {/* TAB 2: ARTIFACTS / SCRATCHPAD */}
         {activeTab === 'scratchpad' && (
-          <div className="space-y-4">
+          <div className="p-4 h-full overflow-y-auto space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Shared Scratchpad & Code Artifacts
@@ -267,7 +352,7 @@ export default function SharedWorkspace({
               </p>
             ) : (
               <div className="space-y-3">
-                {scratchpadItems.map(item => (
+                {scratchpadItems.map((item) => (
                   <div key={item.id} className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-blue-300">{item.title}</span>
@@ -285,7 +370,7 @@ export default function SharedWorkspace({
 
         {/* TAB 3: DECISIONS */}
         {activeTab === 'decisions' && (
-          <div className="space-y-3">
+          <div className="p-4 h-full overflow-y-auto space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Consensus & Agreement Log
@@ -298,7 +383,7 @@ export default function SharedWorkspace({
               </p>
             ) : (
               <div className="space-y-2">
-                {decisions.map(d => (
+                {decisions.map((d) => (
                   <div key={d.id} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-emerald-300">{d.title}</span>
@@ -314,7 +399,7 @@ export default function SharedWorkspace({
 
         {/* TAB 4: SAFETY EVENT LOG */}
         {activeTab === 'safety' && (
-          <div className="space-y-3">
+          <div className="p-4 h-full overflow-y-auto space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-semibold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
                 <ShieldAlert className="h-4 w-4" />
@@ -328,7 +413,7 @@ export default function SharedWorkspace({
               </div>
             ) : (
               <div className="space-y-2">
-                {safetyEvents.map(evt => {
+                {safetyEvents.map((evt) => {
                   const badgeColor = {
                     MANUAL_STOP: 'bg-red-950 text-red-300 border-red-800',
                     HARD_CAP_REACHED: 'bg-amber-950 text-amber-300 border-amber-800',

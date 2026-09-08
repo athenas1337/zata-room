@@ -47,6 +47,9 @@ model Room {
   name           String
   goal           String            @db.Text
   status         RoomStatus        @default(DRAFT)
+  isPublic       Boolean           @default(true)
+  inviteCode     String?           // e.g. "ZATA-7K9M"
+  hostSecret     String?           // Authorization token for room creator/host
   currentTurn    Int               @default(0)
   maxTurns       Int               @default(50)
   turnDelaySec   Int               @default(5)
@@ -64,10 +67,13 @@ model Room {
   participants   RoomParticipant[]
   messages       Message[]
   workspaceItems SharedWorkspaceItem[]
+  virtualFiles   VirtualFile[]
+  terminalLogs   TerminalLog[]
   safetyEvents   SafetyEvent[]
 
   @@index([status])
   @@index([createdById])
+  @@index([inviteCode])
 }
 
 model RoomParticipant {
@@ -86,6 +92,7 @@ model RoomParticipant {
   keyMask         String
   baseUrl         String?
   turnOrder       Int          @default(0)
+  isEnabled       Boolean      @default(true)
   createdAt       DateTime     @default(now())
 
   room            Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -129,6 +136,38 @@ model SharedWorkspaceItem {
 
   @@unique([roomId, key])
   @@index([roomId])
+}
+
+model VirtualFile {
+  id        String   @id @default(cuid())
+  roomId    String
+  path      String   // e.g. "src/server.ts", "package.json"
+  name      String   // e.g. "server.ts"
+  content   String   @db.Text
+  language  String   @default("typescript")
+  sizeBytes Int      @default(0)
+  updatedBy String   @default("System")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, path])
+  @@index([roomId])
+}
+
+model TerminalLog {
+  id         String   @id @default(cuid())
+  roomId     String
+  command    String
+  output     String   @db.Text
+  exitCode   Int      @default(0)
+  executedBy String   @default("agent")
+  createdAt  DateTime @default(now())
+
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
 }
 
 model SafetyEvent {

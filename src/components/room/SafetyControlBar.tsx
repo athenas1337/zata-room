@@ -1,11 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RoomStatus, SafetyConfig } from '@/types';
-import { Square, Play, Pause, AlertTriangle, ShieldCheck, Zap, DollarSign, Sliders, CheckCircle } from 'lucide-react';
+import {
+  Square,
+  Play,
+  Pause,
+  AlertTriangle,
+  ShieldCheck,
+  Zap,
+  DollarSign,
+  Sliders,
+  CheckCircle,
+  Volume2,
+  VolumeX,
+  Share2,
+  Trash2,
+  Crown,
+  User,
+  Lock,
+} from 'lucide-react';
+import { soundManager } from '@/lib/sound';
+import RoomInviteModal from './RoomInviteModal';
+import DeleteRoomDialog from './DeleteRoomDialog';
 
 interface SafetyControlBarProps {
   roomId: string;
+  roomName: string;
   status: RoomStatus;
   currentTurn: number;
   maxTurns: number;
@@ -15,13 +36,19 @@ interface SafetyControlBarProps {
   activeAgentName?: string;
   safetyConfig: SafetyConfig;
   isProcessing: boolean;
+  isHost?: boolean;
+  isGodMode?: boolean;
+  inviteCode?: string | null;
+  isPublic?: boolean;
   onStop: () => Promise<void>;
   onResume: () => Promise<void>;
   onUpdateConfig: (newDelay: number, newMaxTurns: number, newConfig: Partial<SafetyConfig>) => Promise<void>;
+  onRoomDeleted?: () => void;
 }
 
 export default function SafetyControlBar({
   roomId,
+  roomName,
   status,
   currentTurn,
   maxTurns,
@@ -31,26 +58,69 @@ export default function SafetyControlBar({
   activeAgentName,
   safetyConfig,
   isProcessing,
+  isHost = false,
+  isGodMode = false,
+  inviteCode,
+  isPublic = true,
   onStop,
   onResume,
   onUpdateConfig,
+  onRoomDeleted,
 }: SafetyControlBarProps) {
   const [isStopping, setIsStopping] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [hostWarning, setHostWarning] = useState<string | null>(null);
+
   const [delayInput, setDelayInput] = useState(turnDelaySec);
   const [maxTurnsInput, setMaxTurnsInput] = useState(maxTurns);
   const [repThreshold, setRepThreshold] = useState(safetyConfig?.repetitionThreshold ?? 0.85);
 
+  const canControl = isHost || isGodMode;
+
+  const warnNonHost = () => {
+    soundManager.playStop();
+    setHostWarning('Action restricted: Only the Room Host or Developer can control this room.');
+    setTimeout(() => setHostWarning(null), 3500);
+  };
+
   const handleStopClick = async () => {
+    if (!canControl) {
+      warnNonHost();
+      return;
+    }
     try {
       setIsStopping(true);
+      soundManager.playStop();
       await onStop();
     } finally {
       setIsStopping(false);
     }
   };
 
+  const handleResumeClick = async () => {
+    if (!canControl) {
+      warnNonHost();
+      return;
+    }
+    soundManager.playCheckpoint();
+    await onResume();
+  };
+
+  const handleToggleSound = () => {
+    const newState = soundManager.toggle();
+    setSoundEnabled(newState);
+    if (newState) soundManager.playTurnPing();
+  };
+
   const handleSaveSettings = async () => {
+    if (!canControl) {
+      warnNonHost();
+      return;
+    }
+    soundManager.playCheckpoint();
     await onUpdateConfig(delayInput, maxTurnsInput, { repetitionThreshold: repThreshold });
     setShowSettings(false);
   };
@@ -66,15 +136,39 @@ export default function SafetyControlBar({
   return (
     <>
       {/* Sticky Floating Safety Bar */}
-      <div className="sticky top-20 z-40 w-full px-4 mb-4">
-        <div className="max-w-7xl mx-auto rounded-2xl border border-slate-700/70 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
-          {/* Status & Active Agent */}
-          <div className="flex items-center gap-3">
+      <div className="sticky top-16 z-40 w-full px-4 mb-3">
+        <div className="max-w-7xl mx-auto rounded-2xl border border-slate-700/70 bg-slate-900/90 backdrop-blur-xl shadow-2xl p-3 sm:p-3.5 flex flex-wrap items-center justify-between gap-3">
+          {/* Status, Host Badge & Active Agent */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Host Privilege Indicator */}
+            <div
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 border ${
+                canControl
+                  ? 'bg-amber-950/70 border-amber-500/50 text-amber-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+              title={canControl ? 'You have full host ownership and control of this room.' : 'You are participating as a Guest. Only the Host can stop or pause the agents.'}
+            >
+              {canControl ? (
+                <>
+                  <Crown className="h-3 w-3 text-amber-400" />
+                  <span>{isGodMode ? '⚡ Developer Root' : '👑 Host (Owner)'}</span>
+                </>
+              ) : (
+                <>
+                  <User className="h-3 w-3 text-slate-400" />
+                  <span>👤 Guest Spectator</span>
+                </>
+              )}
+            </div>
+
+            {/* Room Status Pill */}
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border ${statusColor} flex items-center gap-1.5`}>
               <span className={`h-2 w-2 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-400 animate-ping' : status === 'PAUSED' ? 'bg-amber-400' : 'bg-slate-400'}`} />
               {status}
             </span>
 
+            {/* Turn Counter */}
             <div className="text-xs text-slate-300">
               <span className="text-slate-400">Turn:</span>{' '}
               <span className="font-bold text-white text-sm">{currentTurn}</span>
@@ -90,13 +184,13 @@ export default function SafetyControlBar({
           </div>
 
           {/* Token & Cost Counter */}
-          <div className="hidden lg:flex items-center gap-4 text-xs text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
+          <div className="hidden lg:flex items-center gap-3 text-xs text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
             <div className="flex items-center gap-1">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Anti-Loop: Active ({Math.round((safetyConfig?.repetitionThreshold ?? 0.85) * 100)}%)</span>
+              <span>Anti-Loop ({Math.round((safetyConfig?.repetitionThreshold ?? 0.85) * 100)}%)</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-slate-200 font-mono font-medium">{totalTokens.toLocaleString()}</span> tokens
+              <span className="text-slate-200 font-mono font-medium">{totalTokens.toLocaleString()}</span> tok
             </div>
             <div className="flex items-center gap-0.5 text-emerald-400 font-mono font-semibold">
               <DollarSign className="h-3 w-3" />
@@ -105,12 +199,45 @@ export default function SafetyControlBar({
           </div>
 
           {/* Primary Action Buttons */}
-          <div className="flex items-center gap-2">
-            {/* Quick Settings Toggle */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Sound Toggle */}
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={handleToggleSound}
+              className={`p-2 rounded-xl border transition ${
+                soundEnabled
+                  ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800'
+              }`}
+              title={soundEnabled ? 'Sound Effects Enabled (Turn Pings & Alerts)' : 'Sound Effects Muted'}
+            >
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+
+            {/* Invite Button */}
+            <button
+              onClick={() => {
+                setShowInviteModal(true);
+                soundManager.playClick();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition"
+              title="Share Room & Invite Friends"
+            >
+              <Share2 className="h-3.5 w-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Invite</span>
+            </button>
+
+            {/* Settings Toggle */}
+            <button
+              onClick={() => {
+                if (!canControl) {
+                  warnNonHost();
+                  return;
+                }
+                setShowSettings(!showSettings);
+                soundManager.playClick();
+              }}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
-              title="Safety & Delay Settings"
+              title={canControl ? 'Safety & Delay Settings' : 'Settings (Host Only)'}
             >
               <Sliders className="h-4 w-4" />
             </button>
@@ -118,49 +245,68 @@ export default function SafetyControlBar({
             {/* Resume / Start Button */}
             {status !== 'ACTIVE' ? (
               <button
-                onClick={onResume}
+                onClick={handleResumeClick}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50"
               >
                 <Play className="h-4 w-4 fill-white" />
-                <span>{status === 'DRAFT' ? 'Start Collaboration' : 'Resume Loop'}</span>
+                <span>{status === 'DRAFT' ? 'Start' : 'Resume'}</span>
               </button>
             ) : (
               <button
-                onClick={onStop}
+                onClick={handleStopClick}
                 disabled={isStopping}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600/80 hover:bg-amber-600 text-white font-medium text-xs sm:text-sm transition"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-amber-600/80 hover:bg-amber-600 text-white font-medium text-xs sm:text-sm transition"
               >
                 <Pause className="h-4 w-4" />
                 <span>Pause</span>
               </button>
             )}
 
-            {/* PROMINENT INSTANT STOP BUTTON (< 500ms) */}
+            {/* INSTANT STOP BUTTON (< 500ms) */}
             <button
               onClick={handleStopClick}
               disabled={isStopping}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-red-600/30 transition active:scale-95 disabled:opacity-50"
-              title="Instant Stop Backend Loop (<500ms)"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-red-600/30 transition active:scale-95 disabled:opacity-50"
+              title={canControl ? 'Instant Stop Backend Loop (<500ms)' : 'Instant Stop (Host Only)'}
             >
               <Square className="h-4 w-4 fill-white" />
               <span>{isStopping ? 'STOPPING...' : 'INSTANT STOP'}</span>
             </button>
+
+            {/* Delete Room Button (Host / Godmode) */}
+            {canControl && (
+              <button
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  soundManager.playStop();
+                }}
+                className="p-2 rounded-xl bg-red-950/50 hover:bg-red-900 border border-red-900/60 text-red-400 hover:text-red-200 transition"
+                title="Delete Room Permanently"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Non-host warning notification */}
+        {hostWarning && (
+          <div className="max-w-7xl mx-auto mt-2 p-2.5 rounded-xl bg-amber-950 border border-amber-700 text-amber-300 text-xs flex items-center gap-2 animate-in fade-in duration-200 shadow-lg">
+            <Lock className="h-4 w-4 shrink-0 text-amber-400" />
+            <span>{hostWarning}</span>
+          </div>
+        )}
+
         {/* Safety Settings Drawer */}
         {showSettings && (
-          <div className="max-w-7xl mx-auto mt-2 p-4 rounded-xl border border-slate-700 bg-slate-900/95 shadow-xl text-xs space-y-3">
+          <div className="max-w-7xl mx-auto mt-2 p-4 rounded-xl border border-slate-700 bg-slate-900/95 shadow-xl text-xs space-y-3 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="font-semibold text-slate-200 flex items-center gap-1.5">
                 <Sliders className="h-4 w-4 text-blue-400" />
-                Orchestration & Safety System Controls
+                Orchestration &amp; Safety System Controls
               </span>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-slate-400 hover:text-white text-sm"
-              >
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white text-sm">
                 ✕
               </button>
             </div>
@@ -174,7 +320,7 @@ export default function SafetyControlBar({
                     min="1"
                     max="30"
                     value={delayInput}
-                    onChange={e => setDelayInput(Number(e.target.value))}
+                    onChange={(e) => setDelayInput(Number(e.target.value))}
                     className="w-full accent-blue-500"
                   />
                   <span className="font-mono text-white font-bold w-8">{delayInput}s</span>
@@ -189,7 +335,7 @@ export default function SafetyControlBar({
                   min="5"
                   max="200"
                   value={maxTurnsInput}
-                  onChange={e => setMaxTurnsInput(Number(e.target.value))}
+                  onChange={(e) => setMaxTurnsInput(Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">Strict hard cap: loop halts when turns reach this value.</p>
@@ -204,7 +350,7 @@ export default function SafetyControlBar({
                     max="0.99"
                     step="0.01"
                     value={repThreshold}
-                    onChange={e => setRepThreshold(Number(e.target.value))}
+                    onChange={(e) => setRepThreshold(Number(e.target.value))}
                     className="w-full accent-emerald-500"
                   />
                   <span className="font-mono text-white font-bold w-12">{Math.round(repThreshold * 100)}%</span>
@@ -224,6 +370,27 @@ export default function SafetyControlBar({
           </div>
         )}
       </div>
+
+      {/* Invite Collaborator Modal */}
+      <RoomInviteModal
+        roomId={roomId}
+        roomName={roomName}
+        inviteCode={inviteCode}
+        isPublic={isPublic}
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+      />
+
+      {/* Delete Room Dialog */}
+      <DeleteRoomDialog
+        roomId={roomId}
+        roomName={roomName}
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onDeleted={onRoomDeleted}
+        isHost={isHost}
+        isGodMode={isGodMode}
+      />
     </>
   );
 }

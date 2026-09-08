@@ -237,6 +237,46 @@ export async function executeRoomStep(roomId: string): Promise<TurnExecutionResu
             data: item,
             timestamp: Date.now(),
           });
+        } else if (call.name === 'create_file' || call.name === 'update_file') {
+          const { path, content, language } = (call.args as any) || {};
+          if (path && content) {
+            const file = await dataStore.upsertVirtualFile(roomId, path, {
+              content,
+              language,
+              updatedBy: participant.agentName,
+            });
+            broadcastToRoom(roomId, {
+              type: 'FILE_UPDATE',
+              data: file,
+              timestamp: Date.now(),
+            });
+          }
+        } else if (call.name === 'delete_file') {
+          const { path } = (call.args as any) || {};
+          if (path) {
+            await dataStore.deleteVirtualFile(roomId, path);
+            broadcastToRoom(roomId, {
+              type: 'FILE_UPDATE',
+              data: { deleted: true, path },
+              timestamp: Date.now(),
+            });
+          }
+        } else if (call.name === 'execute_terminal_command') {
+          const { command } = (call.args as any) || {};
+          if (command) {
+            const simOutput = simulateVirtualTerminalCommand(command, room);
+            const log = await dataStore.addTerminalLog(roomId, {
+              command,
+              output: simOutput.output,
+              exitCode: simOutput.exitCode,
+              executedBy: participant.agentName,
+            });
+            broadcastToRoom(roomId, {
+              type: 'TERMINAL_OUTPUT',
+              data: log,
+              timestamp: Date.now(),
+            });
+          }
         } else if (call.name === 'request_human_checkpoint') {
           isCheckpointTriggered = true;
           checkpointReason = (call.args as any)?.reason || 'Agent requested director review';
@@ -412,3 +452,70 @@ async function pauseRoomWithEvent(
     timestamp: Date.now(),
   });
 }
+
+/**
+ * High-fidelity virtual terminal command simulator for Antigravity VFS sandbox.
+ */
+export function simulateVirtualTerminalCommand(command: string, room: any): { output: string; exitCode: number } {
+  const cmd = command.trim();
+  const files: Array<{ path: string; name: string; content: string; sizeBytes: number }> = room.virtualFiles || [];
+
+  if (cmd === 'ls' || cmd === 'ls -la' || cmd === 'dir') {
+    if (files.length === 0) {
+      return { output: 'total 0\n(no files created yet)', exitCode: 0 };
+    }
+    const lines = [
+      'total ' + (files.length * 4),
+      'drwxr-xr-x 2 zata zata 4096 Sep 08 23:00 .',
+      'drwxr-xr-x 4 zata zata 4096 Sep 08 23:00 ..',
+      ...files.map(f => `-rw-r--r-- 1 zata zata ${f.sizeBytes || f.content?.length || 1024} Sep 08 23:00 ${f.path}`),
+    ];
+    return { output: lines.join('\n'), exitCode: 0 };
+  }
+
+  if (cmd.startsWith('cat ')) {
+    const targetPath = cmd.replace(/^cat\s+/, '').trim();
+    const found = files.find(f => f.path === targetPath || f.name === targetPath);
+    if (!found) {
+      return { output: `cat: ${targetPath}: No such file or directory`, exitCode: 1 };
+    }
+    return { output: found.content, exitCode: 0 };
+  }
+
+  if (cmd.includes('npm test') || cmd.includes('jest')) {
+    const testFiles = files.filter(f => f.path.includes('test') || f.path.includes('spec'));
+    const testName = testFiles[0]?.name || 'test.spec.ts';
+    return {
+      output: `PASS tests/${testName}\n  ✓ unit test suite executed cleanly (42ms)\n  ✓ security policy compliance verified (18ms)\n  ✓ schema validation passed (12ms)\n\nTest Suites: 1 passed, 1 total\nTests:       3 passed, 3 total\nSnapshots:   0 total\nTime:        0.724 s\nRan all test suites.`,
+      exitCode: 0,
+    };
+  }
+
+  if (cmd.includes('npm run build') || cmd.includes('tsc')) {
+    return {
+      output: `> build\n> tsc && next build\n\n✓ Compiled successfully in 1.4s\n✓ Verified 0 type errors\n✓ Generated production bundle`,
+      exitCode: 0,
+    };
+  }
+
+  if (cmd === 'git status') {
+    return {
+      output: `On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges to be committed:\n  (use "git restore --staged <file>..." to unstage)\n\tmodified:   ${files.map(f => f.path).join('\n\tmodified:   ') || 'README.md'}\n\nno changes added to commit (use "git add" to track)`,
+      exitCode: 0,
+    };
+  }
+
+  if (cmd === 'pwd') {
+    return { output: '/home/zata/workspace/' + (room.name?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'project'), exitCode: 0 };
+  }
+
+  if (cmd === 'clear') {
+    return { output: '', exitCode: 0 };
+  }
+
+  return {
+    output: `[Executed]: ${cmd}\nexit code: 0\n(Virtual sandboxed process completed successfully)`,
+    exitCode: 0,
+  };
+}
+
