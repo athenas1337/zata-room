@@ -4,29 +4,35 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bot,
   Plus,
   Shield,
   Zap,
   Sparkles,
-  Clock,
   ArrowRight,
   Play,
-  CheckCircle,
   RefreshCw,
   Lock,
   Globe,
   Key,
   Crown,
   Trash2,
-  Share2,
   FolderTree,
   Terminal,
   Volume2,
+  GitBranch,
+  Star,
+  Layers,
+  Code2,
+  Search,
+  Radio,
+  Sliders,
+  CheckCircle2,
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
+import MakimaLogo from '@/components/brand/MakimaLogo';
 import GodModeModal from '@/components/admin/GodModeModal';
 import DeleteRoomDialog from '@/components/room/DeleteRoomDialog';
+import CommandPalette from '@/components/ide/CommandPalette';
 
 interface RoomSummary {
   id: string;
@@ -49,6 +55,7 @@ interface RoomSummary {
   _count?: {
     messages: number;
     safetyEvents: number;
+    virtualFiles?: number;
   };
 }
 
@@ -58,8 +65,9 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
-  const [joinError, setJoinError] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
 
   // GodMode & Host states
   const [isGodModeOpen, setIsGodModeOpen] = useState(false);
@@ -76,6 +84,12 @@ export default function LobbyPage() {
   const [turnDelaySec, setTurnDelaySec] = useState(5);
   const [maxTurns, setMaxTurns] = useState(50);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Hero interactive CLI simulator command
+  const [heroCommand, setHeroCommand] = useState('npm test');
+  const [heroOutput, setHeroOutput] = useState(
+    'PASS src/core/engine.spec.ts\n ✓ anti-infinite-loop guard active (18ms)\n ✓ makima swarm synchronization passed (12ms)\nTest Suites: 1 passed, 1 total\nTime: 0.624s'
+  );
 
   // Load host secrets from localStorage
   useEffect(() => {
@@ -95,6 +109,11 @@ export default function LobbyPage() {
         e.preventDefault();
         soundManager.playCheckpoint();
         setIsGodModeOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        soundManager.playClick();
+        setIsCommandPaletteOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -147,7 +166,6 @@ export default function LobbyPage() {
 
       const data = await res.json();
       if (data.success && data.room?.id) {
-        // Save hostSecret to localStorage
         try {
           const stored = localStorage.getItem('zata_host_secrets') || '{}';
           const secrets = JSON.parse(stored);
@@ -200,167 +218,241 @@ export default function LobbyPage() {
     const code = joinCodeInput.trim().toUpperCase();
     if (!code) return;
 
-    // Search room in current list or redirect
-    const targetRoom = rooms.find((r) => r.inviteCode?.toUpperCase() === code);
-    if (targetRoom) {
-      soundManager.playCheckpoint();
-      router.push(`/rooms/${targetRoom.id}?invite=${code}`);
+    soundManager.playCheckpoint();
+    router.push(`/rooms/lookup?code=${code}`);
+  };
+
+  const handleHeroRunCommand = (cmd: string) => {
+    soundManager.playClick();
+    setHeroCommand(cmd);
+    if (cmd === 'npm test') {
+      setHeroOutput('PASS src/core/engine.spec.ts\n ✓ anti-loop repetition threshold checked\n ✓ sandboxed VFS security clean\nAll 6 tests passed in 0.41s');
+    } else if (cmd === 'git status') {
+      setHeroOutput('On branch main\nChanges to be committed:\n  modified: src/orchestrator/makima.ts\n  modified: README.md\nSwarm ready to commit.');
+    } else if (cmd === 'zata agent status') {
+      setHeroOutput('Makima Swarm: 3 agents online\n • Architect Alpha [Lead]\n • Coder Beta [Autonomous Fullstack]\n • Auditor Gamma [Security Critic]');
     } else {
-      // Try navigating directly in case it's in the DB
-      soundManager.playClick();
-      router.push(`/rooms/lookup?code=${code}`);
+      setHeroOutput(`[Executed]: ${cmd}\nexit code: 0\nSandboxed execution verified.`);
     }
   };
 
   const filteredRooms = rooms.filter((r) => {
-    if (activeFilter === 'public') return r.isPublic !== false;
-    if (activeFilter === 'private') return r.isPublic === false;
-    return true;
+    const matchesFilter =
+      activeFilter === 'public'
+        ? r.isPublic !== false
+        : activeFilter === 'private'
+        ? r.isPublic === false
+        : true;
+
+    const matchesSearch =
+      r.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      r.goal.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      r.inviteCode?.toLowerCase().includes(searchFilter.toLowerCase());
+
+    return matchesFilter && matchesSearch;
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
-      {/* Hero Section */}
-      <div className="text-center space-y-4 max-w-3xl mx-auto pt-6">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-950/80 border border-blue-800/60 text-xs font-semibold text-blue-300 shadow-md">
-          <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-          <span>Antigravity Autonomous Multi-Agent Workspaces</span>
-        </div>
+    <div className="max-w-[1750px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      {/* 1. HERO SECTION: Makima Cyber-Noir & Interactive Playground */}
+      <div className="relative rounded-3xl border border-rose-950/60 bg-gradient-to-b from-[#130718]/90 via-[#0a040d]/90 to-[#070309] p-6 sm:p-10 overflow-hidden shadow-2xl">
+        {/* Background Ambient Glow & Makima Chains motif */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 left-10 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-          Collaborative AI Agent Rooms
-        </h1>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+          {/* Left Column: Headline, Brand, CTA */}
+          <div className="lg:col-span-6 space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-700/60 text-xs font-mono font-bold text-rose-300 shadow-md">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <span>ZATA COMMUNITY</span>
+                <span className="text-slate-500">&bull;</span>
+                <span className="text-amber-400">Makima Autonomous Swarm</span>
+              </span>
 
-        <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-          Coordinate autonomous AI agents pairing in real-time. Equipped with in-room virtual file explorer, sandboxed web terminal, host-exclusive control, and guaranteed anti-infinite-loop safety.
-        </p>
+              {/* Jedag-Jedug Beat Drop Button */}
+              <button
+                onClick={() => soundManager.playJedagJedugBeat()}
+                className="px-3 py-1 rounded-full bg-gradient-to-r from-rose-900/60 to-red-900/60 hover:from-rose-800 hover:to-red-800 border border-rose-600/50 text-[11px] font-mono text-rose-200 font-bold transition flex items-center gap-1 shadow hover:scale-105 active:scale-95"
+                title="Play Makima Jedag-Jedug Bass Beat!"
+              >
+                <Volume2 className="h-3 w-3 text-rose-400" />
+                <span>🔥 Makima Beat Drop</span>
+              </button>
+            </div>
 
-        {/* Primary CTA Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-          <button
-            onClick={() => {
-              soundManager.playClick();
-              setIsCreateOpen(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-sm shadow-xl shadow-blue-600/25 transition active:scale-95"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Agentic Room</span>
-          </button>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-white">
+              The Next-Gen{' '}
+              <span className="bg-gradient-to-r from-rose-500 via-red-400 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(225,29,72,0.6)]">
+                Agentic Cloud IDE
+              </span>
+            </h1>
 
-          <button
-            onClick={() => {
-              soundManager.playClick();
-              setIsJoinOpen(true);
-            }}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm transition"
-          >
-            <Key className="h-4 w-4 text-cyan-400" />
-            <span>Join with Passcode</span>
-          </button>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl">
+              Unleash autonomous AI pairing inside a real GitHub-grade workspace.
+              Equipped with in-room virtual file system (VFS), integrated multi-tab bash terminal, and host ownership control.
+            </p>
 
-          <button
-            onClick={handleCreateQuickDemo}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-medium text-sm transition"
-          >
-            <Play className="h-4 w-4 text-emerald-400" />
-            <span>Quick Demo Room</span>
-          </button>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  setIsCreateOpen(true);
+                }}
+                className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-xl shadow-rose-600/30 transition active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create Agentic Room</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  setIsJoinOpen(true);
+                }}
+                className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-[#140819] hover:bg-[#1a0b21] border border-rose-950 text-slate-200 font-semibold text-sm transition font-mono"
+              >
+                <Key className="h-4 w-4 text-amber-400" />
+                <span>Join with Passcode</span>
+              </button>
+
+              <button
+                onClick={handleCreateQuickDemo}
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-4 py-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-xs font-mono transition"
+              >
+                <Play className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Quick Demo</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Interactive Live IDE Mockup Playground */}
+          <div className="lg:col-span-6">
+            <div className="rounded-2xl border border-rose-950/70 bg-[#0c0510] shadow-2xl overflow-hidden font-mono text-xs">
+              {/* Fake IDE Header */}
+              <div className="px-4 py-2.5 bg-[#120718] border-b border-rose-950/70 flex items-center justify-between text-slate-400">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 mr-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  </div>
+                  <span className="text-[11px] font-bold text-rose-300">zata-workspace &bull; main</span>
+                </div>
+                <span className="text-[10px] text-amber-400 flex items-center gap-1">
+                  <Radio className="h-3 w-3 animate-pulse" /> Live Swarm
+                </span>
+              </div>
+
+              {/* Fake Editor & Code Preview */}
+              <div className="p-4 bg-[#08030b] space-y-1.5 text-[11px] text-rose-100/90 leading-relaxed border-b border-rose-950/50">
+                <div className="text-slate-500">// Makima Autonomous Multi-Agent Orchestrator Loop</div>
+                <div>
+                  <span className="text-rose-400">export async function</span>{' '}
+                  <span className="text-amber-300">orchestrateSwarm</span>(goal:{' '}
+                  <span className="text-emerald-400">string</span>) &#123;
+                </div>
+                <div className="pl-4">
+                  <span className="text-rose-400">const</span> agents = [
+                  <span className="text-emerald-300">&quot;Architect Alpha&quot;</span>,{' '}
+                  <span className="text-emerald-300">&quot;Coder Beta&quot;</span>];
+                </div>
+                <div className="pl-4">
+                  <span className="text-rose-400">await</span> makima.executeTurn(agents, &#123;{' '}
+                  <span className="text-amber-400">vfs</span>: <span className="text-cyan-400">true</span> &#125;);
+                </div>
+                <div>&#125;</div>
+              </div>
+
+              {/* Interactive Mini Terminal inside Hero */}
+              <div className="p-3 bg-[#0a040e] space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <Terminal className="h-3 w-3 text-rose-400" /> Interactive CLI:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {['npm test', 'git status', 'zata agent status'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => handleHeroRunCommand(c)}
+                        className={`px-2 py-0.5 rounded text-[10px] transition ${
+                          heroCommand === c
+                            ? 'bg-rose-950 text-rose-300 border border-rose-700'
+                            : 'bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <pre className="p-2.5 rounded-lg bg-[#060208] text-rose-200/90 text-[10px] font-mono whitespace-pre-wrap border border-rose-950/40">
+                  <span className="text-rose-500 font-bold">$ {heroCommand}</span>
+                  {'\n'}
+                  {heroOutput}
+                </pre>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Feature Pillar Highlights */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5">
-          <div className="h-9 w-9 rounded-xl bg-red-950/60 border border-red-800/50 flex items-center justify-center text-red-400">
-            <Zap className="h-4 w-4" />
-          </div>
-          <h2 className="text-sm font-bold text-white">Anti-Infinite-Loop Engine</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Instant &lt;500ms stop button, strict turn cap, and N-gram repetition detector to halt runaway loops.
-          </p>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5">
-          <div className="h-9 w-9 rounded-xl bg-cyan-950/60 border border-cyan-800/50 flex items-center justify-center text-cyan-400">
-            <FolderTree className="h-4 w-4" />
-          </div>
-          <h2 className="text-sm font-bold text-white">Antigravity VFS Workspace</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            AI agents write code, create project files, and pair-program in real-time in the virtual file system.
-          </p>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5">
-          <div className="h-9 w-9 rounded-xl bg-emerald-950/60 border border-emerald-800/50 flex items-center justify-center text-emerald-400">
-            <Terminal className="h-4 w-4" />
-          </div>
-          <h2 className="text-sm font-bold text-white">Live Web Terminal</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Execute virtual commands, run unit tests, check git status, and inspect outputs in real time.
-          </p>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5">
-          <div className="h-9 w-9 rounded-xl bg-amber-950/60 border border-amber-800/50 flex items-center justify-center text-amber-400">
-            <Crown className="h-4 w-4" />
-          </div>
-          <h2 className="text-sm font-bold text-white">Host Ownership &amp; Privacy</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Exclusive host pause/delete controls, invite-only codes, and developer override mechanisms.
-          </p>
-        </div>
-      </div>
-
-      {/* Active Rooms Listing */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* 2. REPOSITORY & WORKSPACE DIRECTORY (GitHub-Grade Cards) */}
+      <div className="space-y-5">
+        {/* Filter bar & search */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-950/50 pb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-white">Collaboration Rooms</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 font-mono">
+              <FolderTree className="h-5 w-5 text-rose-400" />
+              <span>Agentic Workspaces</span>
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-800 text-rose-300 font-mono font-bold">
               {filteredRooms.length}
             </span>
           </div>
 
-          {/* Filter Tabs & Controls */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center p-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <button
-                onClick={() => {
-                  soundManager.playClick();
-                  setActiveFilter('all');
-                }}
-                className={`px-3 py-1 rounded-lg font-medium transition ${
-                  activeFilter === 'all' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => {
-                  soundManager.playClick();
-                  setActiveFilter('public');
-                }}
-                className={`px-3 py-1 rounded-lg font-medium transition flex items-center gap-1 ${
-                  activeFilter === 'public' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Globe className="h-3 w-3" />
-                <span>Public</span>
-              </button>
-              <button
-                onClick={() => {
-                  soundManager.playClick();
-                  setActiveFilter('private');
-                }}
-                className={`px-3 py-1 rounded-lg font-medium transition flex items-center gap-1 ${
-                  activeFilter === 'private' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Lock className="h-3 w-3" />
-                <span>Invite-Only</span>
-              </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+              <input
+                type="text"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="Find a workspace..."
+                className="pl-9 pr-3 py-1.5 rounded-xl bg-[#120718] border border-rose-950 text-xs text-rose-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 font-mono w-48 sm:w-64"
+              />
+            </div>
+
+            {/* Visibility Filter Tabs */}
+            <div className="flex items-center p-1 rounded-xl bg-[#120718] border border-rose-950 text-xs font-mono">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'public', label: 'Public', icon: Globe },
+                { id: 'private', label: 'Invite-Only', icon: Lock },
+              ].map((f) => {
+                const Icon = f.icon;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveFilter(f.id as any);
+                    }}
+                    className={`px-3 py-1 rounded-lg transition flex items-center gap-1 font-semibold ${
+                      activeFilter === f.id
+                        ? 'bg-rose-600 text-white shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {Icon && <Icon className="h-3 w-3" />}
+                    <span>{f.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <button
@@ -368,83 +460,83 @@ export default function LobbyPage() {
                 soundManager.playClick();
                 fetchRooms();
               }}
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-              title="Refresh room list"
+              className="p-2 rounded-xl bg-[#140819] hover:bg-rose-950 text-slate-400 hover:text-white border border-rose-950 transition"
+              title="Refresh repository list"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
           </div>
         </div>
 
+        {/* Workspaces Grid */}
         {loading ? (
-          <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-            <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
-            <span className="text-xs">Loading rooms...</span>
+          <div className="p-16 text-center text-slate-500 flex flex-col items-center gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-rose-500" />
+            <span className="text-xs font-mono">Loading Makima swarm workspaces...</span>
           </div>
         ) : filteredRooms.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 space-y-3">
-            <Bot className="h-10 w-10 text-slate-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-slate-300">
-              {activeFilter === 'all'
-                ? 'No rooms created yet'
-                : `No ${activeFilter} rooms found`}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Create your first agentic room or enter an invite code to join a session.
+          <div className="p-16 text-center rounded-3xl border border-dashed border-rose-950/60 bg-[#0d0512]/60 space-y-4">
+            <Code2 className="h-12 w-12 text-rose-900/60 mx-auto" />
+            <h3 className="text-base font-bold text-slate-300">No matching workspaces found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto font-mono">
+              Create a new room or join with an invite code to begin autonomous AI pairing.
             </p>
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition"
+              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition"
             >
               Create New Room
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredRooms.map((r) => {
               const isUserHost = hostRoomIds.has(r.id);
-              const statusBadge = {
-                ACTIVE: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-                PAUSED: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
-                DRAFT: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-                COMPLETED: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
-                ARCHIVED: 'bg-slate-700/50 text-slate-400 border-slate-600',
-              }[r.status] || 'bg-slate-700 text-slate-300';
+              const statusColor = {
+                ACTIVE: 'bg-emerald-950/80 text-emerald-300 border-emerald-800',
+                PAUSED: 'bg-amber-950/80 text-amber-300 border-amber-800',
+                DRAFT: 'bg-blue-950/80 text-blue-300 border-blue-800',
+                COMPLETED: 'bg-purple-950/80 text-purple-300 border-purple-800',
+              }[r.status] || 'bg-slate-900 text-slate-300 border-slate-800';
 
               return (
                 <div
                   key={r.id}
-                  className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-blue-500/60 hover:bg-slate-900 transition flex flex-col justify-between group shadow-lg relative"
+                  className="p-5 rounded-2xl bg-[#0f0715] border border-rose-950/60 hover:border-rose-600/70 hover:bg-[#14091a] transition-all flex flex-col justify-between group shadow-xl relative"
                 >
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
+                    {/* Header line */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusBadge}`}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusColor}`}>
                           {r.status}
                         </span>
+
                         {r.isPublic === false ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
-                            <Lock className="h-2.5 w-2.5" /> Invite Only
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800/80 flex items-center gap-1 font-mono">
+                            <Lock className="h-2.5 w-2.5" /> Private
                           </span>
                         ) : (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/80 flex items-center gap-1 font-mono">
                             <Globe className="h-2.5 w-2.5" /> Public
                           </span>
                         )}
+
                         {isUserHost && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/50 text-amber-300 font-bold flex items-center gap-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/90 border border-amber-500/60 text-amber-300 font-bold flex items-center gap-1 font-mono">
                             <Crown className="h-2.5 w-2.5 text-amber-400" /> Host
                           </span>
                         )}
                       </div>
 
-                      <span className="text-xs text-slate-500 font-mono">
-                        Turn {r.currentTurn} / {r.maxTurns}
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        Turn {r.currentTurn}/{r.maxTurns}
                       </span>
                     </div>
 
+                    {/* Title & Goal */}
                     <Link href={`/rooms/${r.id}`}>
-                      <h3 className="font-bold text-white text-sm group-hover:text-blue-400 transition line-clamp-1">
+                      <h3 className="font-bold text-white text-sm group-hover:text-rose-400 transition line-clamp-1 font-mono">
                         {r.name}
                       </h3>
                     </Link>
@@ -452,14 +544,24 @@ export default function LobbyPage() {
                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                       {r.goal}
                     </p>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-rose-600 to-amber-500 h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(100, ((r.currentTurn || 1) / (r.maxTurns || 50)) * 100)}%` }}
+                      />
+                    </div>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                  {/* Footer & Actions */}
+                  <div className="pt-4 mt-4 border-t border-rose-950/50 flex items-center justify-between text-xs text-slate-400 font-mono">
+                    {/* Agent Avatars */}
                     <div className="flex items-center -space-x-1.5">
                       {r.participants.map((p) => (
                         <span
                           key={p.id}
-                          className="h-6 w-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold text-white shadow"
+                          className="h-6 w-6 rounded-full border-2 border-black flex items-center justify-center text-[10px] font-bold text-white shadow"
                           style={{ backgroundColor: p.avatarColor }}
                           title={`${p.agentName} (${p.roleLabel})`}
                         >
@@ -467,16 +569,17 @@ export default function LobbyPage() {
                         </span>
                       ))}
                       {r.participants.length === 0 && (
-                        <span className="text-[11px] text-slate-500 italic">No agents yet</span>
+                        <span className="text-[10px] text-slate-500 italic">0 agents</span>
                       )}
                     </div>
 
+                    {/* Launch IDE Button */}
                     <div className="flex items-center gap-2">
                       {isUserHost && (
                         <button
                           onClick={() => setDeleteTarget({ id: r.id, name: r.name })}
                           className="p-1.5 rounded-lg bg-red-950/50 hover:bg-red-900 text-red-400 hover:text-red-200 border border-red-900/60 transition"
-                          title="Delete Room (Host)"
+                          title="Delete Workspace (Host)"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -484,9 +587,9 @@ export default function LobbyPage() {
 
                       <Link
                         href={`/rooms/${r.id}`}
-                        className="flex items-center gap-1 text-blue-400 group-hover:translate-x-0.5 transition-transform text-xs font-semibold"
+                        className="flex items-center gap-1 text-rose-400 group-hover:text-rose-300 font-bold transition-transform group-hover:translate-x-1 text-xs"
                       >
-                        <span>Enter Room</span>
+                        <span>Launch IDE</span>
                         <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -498,48 +601,47 @@ export default function LobbyPage() {
         )}
       </div>
 
-      {/* Modal: Create Room */}
+      {/* 3. MODALS */}
+      {/* Create Room Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="max-w-lg w-full bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="max-w-lg w-full bg-[#0e0714] border border-rose-700/80 rounded-2xl shadow-2xl shadow-rose-950/80 p-6 space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-rose-950/60 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Bot className="h-5 w-5 text-blue-400" />
-                <span>Create New Agentic Room</span>
+                <Code2 className="h-5 w-5 text-rose-400" />
+                <span>Initialize New Agentic Workspace</span>
               </h3>
-              <button onClick={() => setIsCreateOpen(false)} className="text-slate-400 hover:text-white">
-                ✕
-              </button>
+              <button onClick={() => setIsCreateOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
-            <form onSubmit={handleCreateRoom} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateRoom} className="space-y-4">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Room Name</label>
+                <label className="block text-slate-300 font-semibold mb-1">Workspace / Project Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Next.js High-Performance Microservice"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. distributed-cloud-architecture"
+                  className="w-full px-3 py-2 rounded-xl bg-[#070309] border border-rose-950 text-white focus:outline-none focus:border-rose-500 font-mono"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Project Goal / Core Directive</label>
+                <label className="block text-slate-300 font-semibold mb-1">Core Objective / Prompt</label>
                 <textarea
                   rows={3}
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Describe the problem, task, or feature that the AI agents should solve together in the VFS..."
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500 leading-relaxed"
+                  placeholder="Describe the architectural problem or code suite the agents must solve together in the VFS..."
+                  className="w-full p-3 rounded-xl bg-[#070309] border border-rose-950 text-slate-200 focus:outline-none focus:border-rose-500 font-mono leading-relaxed"
                   required
                 />
               </div>
 
-              {/* Privacy Setting */}
-              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
-                <div className="font-semibold text-slate-300">Room Visibility &amp; Access</div>
+              {/* Privacy Radio */}
+              <div className="p-3 rounded-xl bg-[#070309] border border-rose-950 space-y-2">
+                <div className="font-semibold text-slate-300">Access Mode</div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -547,13 +649,13 @@ export default function LobbyPage() {
                     className={`p-2 rounded-lg border text-left flex items-center gap-2 transition ${
                       isPublic
                         ? 'bg-emerald-950/80 border-emerald-600 text-emerald-200'
-                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                        : 'bg-[#0e0714] border-slate-900 text-slate-500'
                     }`}
                   >
                     <Globe className="h-4 w-4 text-emerald-400" />
                     <div>
-                      <div className="font-bold text-xs">Public Room</div>
-                      <div className="text-[10px] text-slate-500">Visible on Lobby</div>
+                      <div className="font-bold text-xs">Public</div>
+                      <div className="text-[10px] text-slate-400">Listed on Lobby</div>
                     </div>
                   </button>
 
@@ -563,13 +665,13 @@ export default function LobbyPage() {
                     className={`p-2 rounded-lg border text-left flex items-center gap-2 transition ${
                       !isPublic
                         ? 'bg-amber-950/80 border-amber-600 text-amber-200'
-                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                        : 'bg-[#0e0714] border-slate-900 text-slate-500'
                     }`}
                   >
                     <Lock className="h-4 w-4 text-amber-400" />
                     <div>
                       <div className="font-bold text-xs">Invite-Only</div>
-                      <div className="text-[10px] text-slate-500">Requires Passcode</div>
+                      <div className="text-[10px] text-slate-400">Passcode Protected</div>
                     </div>
                   </button>
                 </div>
@@ -577,26 +679,26 @@ export default function LobbyPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Delay Countdown (sec)</label>
+                  <label className="block text-slate-400 mb-1">Turn Delay (sec)</label>
                   <input
                     type="number"
                     min="1"
                     max="60"
                     value={turnDelaySec}
                     onChange={(e) => setTurnDelaySec(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-[#070309] border border-rose-950 text-white font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1">Hard Cap Turns (limit)</label>
+                  <label className="block text-slate-400 mb-1">Turn Limit Cap</label>
                   <input
                     type="number"
                     min="5"
                     max="200"
                     value={maxTurns}
                     onChange={(e) => setMaxTurns(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-[#070309] border border-rose-950 text-white font-mono"
                   />
                 </div>
               </div>
@@ -605,16 +707,16 @@ export default function LobbyPage() {
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-md transition disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-md shadow-rose-600/30 transition disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create & Enter Room'}
+                  {isSubmitting ? 'Creating...' : 'Initialize Workspace'}
                 </button>
               </div>
             </form>
@@ -622,50 +724,45 @@ export default function LobbyPage() {
         </div>
       )}
 
-      {/* Modal: Join with Passcode */}
+      {/* Join with Passcode Modal */}
       {isJoinOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="max-w-md w-full bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="max-w-md w-full bg-[#0e0714] border border-rose-700/80 rounded-2xl shadow-2xl p-6 space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-rose-950/60 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Key className="h-5 w-5 text-cyan-400" />
-                <span>Join Room with Passcode</span>
+                <Key className="h-5 w-5 text-amber-400" />
+                <span>Join Workspace with Passcode</span>
               </h3>
-              <button onClick={() => setIsJoinOpen(false)} className="text-slate-400 hover:text-white">
-                ✕
-              </button>
+              <button onClick={() => setIsJoinOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
-            <form onSubmit={handleJoinWithCode} className="space-y-4 text-xs">
+            <form onSubmit={handleJoinWithCode} className="space-y-4">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Invite Code</label>
+                <label className="block text-slate-300 font-medium mb-1">8-Character Invite Code</label>
                 <input
                   type="text"
                   value={joinCodeInput}
                   onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. ZATA-XXXX"
-                  className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-cyan-400 font-mono text-center font-bold text-base tracking-wider focus:outline-none focus:border-cyan-500"
+                  placeholder="ZATA-XXXX"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#070309] border border-rose-950 text-amber-400 font-mono text-center font-bold text-base tracking-widest focus:outline-none focus:border-amber-400"
                   autoFocus
                   required
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Ask the room host for the 8-character invite code.
-                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsJoinOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow-md transition"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold shadow-md shadow-amber-500/30 transition"
                 >
-                  Join Room
+                  Join Workspace
                 </button>
               </div>
             </form>
@@ -673,7 +770,7 @@ export default function LobbyPage() {
         </div>
       )}
 
-      {/* Delete Room Dialog */}
+      {/* Delete Workspace Dialog */}
       {deleteTarget && (
         <DeleteRoomDialog
           roomId={deleteTarget.id}
@@ -688,21 +785,15 @@ export default function LobbyPage() {
         />
       )}
 
+      {/* Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenGodMode={() => setIsGodModeOpen(true)}
+      />
+
       {/* Developer Superuser Modal (Atha1337) */}
       <GodModeModal isOpen={isGodModeOpen} onClose={() => setIsGodModeOpen(false)} />
-
-      {/* Footer with Developer Secret Shortcut hint */}
-      <div className="pt-8 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500">
-        <div>ZATA Agentic Room &bull; Next-Gen Antigravity AI Pairing Engine</div>
-        <button
-          onClick={() => setIsGodModeOpen(true)}
-          className="text-slate-600 hover:text-amber-400 font-mono transition flex items-center gap-1"
-          title="Developer Superuser Console"
-        >
-          <Zap className="h-3 w-3" />
-          <span>Atha1337 Dev Console</span>
-        </button>
-      </div>
     </div>
   );
 }

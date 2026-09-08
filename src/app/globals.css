@@ -3,12 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --card: #0f172a;
-  --card-border: #1e293b;
-  --primary: #3b82f6;
-  --primary-glow: rgba(59, 130, 246, 0.25);
+  --background: #08040a;
+  --foreground: #f8fafc;
+  --card: #120917;
+  --card-border: #281220;
+  --primary: #e11d48;
+  --primary-glow: rgba(225, 29, 72, 0.35);
+  --makima-gold: #f59e0b;
+  --makima-amber: #fbbf24;
   --accent: #10b981;
 }
 
@@ -17,51 +19,94 @@ body {
   background-color: var(--background);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
+  background-image: 
+    radial-gradient(ellipse at 50% -10%, rgba(225, 29, 72, 0.12), transparent 50%),
+    radial-gradient(ellipse at 90% 40%, rgba(245, 158, 11, 0.05), transparent 40%),
+    radial-gradient(ellipse at 10% 80%, rgba(136, 19, 55, 0.08), transparent 40%);
+  background-attachment: fixed;
 }
 
 /* Custom glowing pulse for active thinking agents */
 @keyframes agent-pulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
-    border-color: rgba(59, 130, 246, 0.7);
+    box-shadow: 0 0 15px rgba(225, 29, 72, 0.3);
+    border-color: rgba(225, 29, 72, 0.7);
   }
   50% {
-    box-shadow: 0 0 25px rgba(59, 130, 246, 0.65);
-    border-color: rgba(96, 165, 250, 1);
+    box-shadow: 0 0 25px rgba(225, 29, 72, 0.65), 0 0 10px rgba(245, 158, 11, 0.4);
+    border-color: rgba(251, 191, 36, 1);
   }
 }
 
 .animate-agent-pulse {
-  animation: agent-pulse 2s infinite ease-in-out;
+  animation: agent-pulse 1.8s infinite ease-in-out;
 }
 
-/* Glassmorphism utility */
+/* Makima Jedag Jedug Glitch / Bass Pulse Effect */
+@keyframes jedag-beat {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 5px rgba(225, 29, 72, 0.4));
+  }
+  15% {
+    transform: scale(1.06) rotate(-0.5deg);
+    filter: drop-shadow(0 0 18px rgba(225, 29, 72, 0.9)) drop-shadow(0 0 25px rgba(245, 158, 11, 0.7));
+  }
+  30% {
+    transform: scale(0.99) rotate(0.5deg);
+  }
+  45% {
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 12px rgba(225, 29, 72, 0.7));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 5px rgba(225, 29, 72, 0.4));
+  }
+}
+
+.animate-jedag-beat {
+  animation: jedag-beat 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/* Glassmorphism utility with Makima tint */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 9, 23, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(225, 29, 72, 0.15);
 }
 
 .glass-panel-glow {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  background: rgba(18, 9, 23, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px rgba(225, 29, 72, 0.15);
 }
 
-/* Custom thin scrollbar */
+/* Code Editor Syntax Styling & Scanline accents */
+.code-editor-gutter {
+  user-select: none;
+  border-right: 1px solid rgba(225, 29, 72, 0.15);
+  background: rgba(10, 5, 13, 0.9);
+}
+
+.code-editor-line:hover {
+  background-color: rgba(225, 29, 72, 0.08);
+}
+
+/* Custom thin scrollbar with Makima crimson thumb */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(14, 7, 18, 0.8);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.5);
+  background: rgba(159, 18, 57, 0.5);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.8);
+  background: rgba(225, 29, 72, 0.85);
 }

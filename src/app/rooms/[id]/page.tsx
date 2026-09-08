@@ -18,6 +18,7 @@ import AgentChatView from '@/components/room/AgentChatView';
 import SharedWorkspace from '@/components/room/SharedWorkspace';
 import RoleConfigModal from '@/components/room/RoleConfigModal';
 import GodModeModal from '@/components/admin/GodModeModal';
+import CommandPalette from '@/components/ide/CommandPalette';
 import { Bot, Plus, AlertTriangle, ArrowLeft, RefreshCw, Radio, Lock, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,6 +33,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState<string | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isGodModeOpen, setIsGodModeOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Host & GodMode Status
   const [isHost, setIsHost] = useState(false);
@@ -75,13 +77,18 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
     }
   }, [roomId]);
 
-  // Keyboard shortcut for Atha1337 Godmode: Ctrl + Shift + A
+  // Keyboard shortcut for Atha1337 Godmode: Ctrl + Shift + A & Command Palette: Ctrl + K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
         e.preventDefault();
         soundManager.playCheckpoint();
         setIsGodModeOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        soundManager.playClick();
+        setIsCommandPaletteOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -614,6 +621,27 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Developer GodMode Modal (Atha1337) */}
       <GodModeModal isOpen={isGodModeOpen} onClose={() => setIsGodModeOpen(false)} />
+
+      {/* Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        files={virtualFiles}
+        onSelectFile={(path) => {
+          // File selected
+        }}
+        onRunTerminal={async (cmd) => {
+          await fetch(`/api/rooms/${roomId}/terminal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd, executedBy: 'Human Director (Palette)' }),
+          });
+          fetchRoomData();
+        }}
+        onInstantStop={handleInstantStop}
+        onResume={handleResumeLoop}
+        onOpenGodMode={() => setIsGodModeOpen(true)}
+      />
     </div>
   );
 }

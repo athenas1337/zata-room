@@ -2,7 +2,20 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { TerminalLogDTO } from '@/types';
-import { Terminal as TerminalIcon, Play, Trash2, CheckCircle, AlertCircle, CornerDownLeft, Sparkles } from 'lucide-react';
+import {
+  Terminal as TerminalIcon,
+  Play,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  CornerDownLeft,
+  Sparkles,
+  GitBranch,
+  Layers,
+  Cpu,
+  Maximize2,
+  Minimize2,
+} from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 
 interface WebTerminalProps {
@@ -12,7 +25,7 @@ interface WebTerminalProps {
   isHost?: boolean;
 }
 
-const QUICK_COMMANDS = ['ls -la', 'npm test', 'git status', 'pwd', 'npm run build', 'clear'];
+const QUICK_COMMANDS = ['zata help', 'ls -la', 'npm test', 'git status', 'pwd', 'npm run build', 'clear'];
 
 export default function WebTerminal({
   roomId,
@@ -20,11 +33,13 @@ export default function WebTerminal({
   onCommandExecuted,
   isHost = false,
 }: WebTerminalProps) {
+  const [activeTab, setActiveTab] = useState<'bash' | 'agent-runner' | 'git' | 'test-runner'>('bash');
   const [inputCommand, setInputCommand] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
   const [isExecuting, setIsExecuting] = useState(false);
   const [localLogs, setLocalLogs] = useState<TerminalLogDTO[]>(logs);
+  const [isMaximized, setIsMaximized] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +48,7 @@ export default function WebTerminal({
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [localLogs]);
+  }, [localLogs, activeTab]);
 
   const handleRunCommand = async (cmdToRun?: string) => {
     const cmd = (cmdToRun || inputCommand).trim();
@@ -48,7 +63,6 @@ export default function WebTerminal({
     setIsExecuting(true);
     soundManager.playClick();
 
-    // Add to local history
     setHistory((prev) => [cmd, ...prev]);
     setHistoryIdx(-1);
     setInputCommand('');
@@ -59,7 +73,7 @@ export default function WebTerminal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           command: cmd,
-          executedBy: 'Human Director',
+          executedBy: 'Human Director (CLI)',
         }),
       });
       const data = await res.json();
@@ -97,40 +111,80 @@ export default function WebTerminal({
     }
   };
 
-  return (
-    <div className="flex flex-col h-full bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl font-mono">
-      {/* Terminal Titlebar */}
-      <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {/* Traffic lights */}
-          <div className="flex items-center gap-1.5 mr-2">
-            <span className="h-3 w-3 rounded-full bg-red-500/80 inline-block" />
-            <span className="h-3 w-3 rounded-full bg-amber-500/80 inline-block" />
-            <span className="h-3 w-3 rounded-full bg-emerald-500/80 inline-block" />
-          </div>
+  // Filter logs by active tab
+  const filteredLogs = localLogs.filter((log) => {
+    if (activeTab === 'git') return log.command.startsWith('git');
+    if (activeTab === 'test-runner') return log.command.includes('test') || log.command.includes('jest');
+    if (activeTab === 'agent-runner') return log.executedBy?.includes('Agent') || log.executedBy?.includes('Beta') || log.executedBy?.includes('Alpha');
+    return true;
+  });
 
-          <TerminalIcon className="h-4 w-4 text-emerald-400" />
-          <span className="text-xs font-bold text-slate-200">bash &bull; zata@sandbox:~/workspace</span>
+  return (
+    <div
+      className={`flex flex-col bg-[#08040a] rounded-xl border border-rose-950/60 overflow-hidden shadow-2xl font-mono transition-all ${
+        isMaximized ? 'fixed inset-4 z-50 h-[calc(100vh-2rem)]' : 'h-full'
+      }`}
+    >
+      {/* Terminal Titlebar & Tab Bar */}
+      <div className="px-3 py-2 bg-[#0e0714] border-b border-rose-950/60 flex items-center justify-between gap-3 text-xs select-none">
+        {/* Terminal Tabs (VS Code style) */}
+        <div className="flex items-center gap-1">
+          {[
+            { id: 'bash', label: '1: bash', icon: TerminalIcon },
+            { id: 'agent-runner', label: '2: agent-swarm', icon: Cpu },
+            { id: 'git', label: '3: git-vcs', icon: GitBranch },
+            { id: 'test-runner', label: '4: tests', icon: Layers },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  soundManager.playClick();
+                  setActiveTab(tab.id as any);
+                }}
+                className={`px-2.5 py-1 rounded-md transition flex items-center gap-1.5 text-[11px] font-mono ${
+                  isActive
+                    ? 'bg-[#18091f] text-rose-300 border border-rose-800/60 font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#120817]'
+                }`}
+              >
+                <Icon className="h-3 w-3 text-rose-400" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <button
-          onClick={() => setLocalLogs([])}
-          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs transition"
-          title="Clear Screen"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {/* Right window actions */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setIsMaximized(!isMaximized)}
+            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            title={isMaximized ? 'Restore Down' : 'Maximize Panel'}
+          >
+            {isMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={() => setLocalLogs([])}
+            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            title="Clear Terminal"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Quick Command Chips */}
-      <div className="px-3 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-        <span className="text-slate-500 text-[10px] uppercase font-bold shrink-0">Quick:</span>
+      <div className="px-3 py-1 bg-[#09040c] border-b border-rose-950/40 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+        <span className="text-slate-500 text-[10px] uppercase font-bold shrink-0">Chips:</span>
         {QUICK_COMMANDS.map((cmd) => (
           <button
             key={cmd}
             onClick={() => handleRunCommand(cmd)}
             disabled={isExecuting}
-            className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800 text-[11px] font-mono transition shrink-0 hover:border-emerald-500/40"
+            className="px-2 py-0.5 rounded bg-[#130819] hover:bg-[#1c0c24] text-rose-300 border border-rose-950 text-[10px] font-mono transition shrink-0 hover:border-rose-700/50"
           >
             {cmd}
           </button>
@@ -138,23 +192,22 @@ export default function WebTerminal({
       </div>
 
       {/* Terminal Output Stream */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-        <div className="text-slate-500 text-[11px] select-none border-b border-slate-800/60 pb-2">
-          Antigravity Virtual Terminal v2.4 (Simulated Sandbox Safe Environment)
-          <br />
-          Type commands or run tests. Live outputs synchronized to all room participants.
+      <div className="flex-1 p-3 overflow-y-auto space-y-2.5 text-xs bg-[#070309]">
+        <div className="text-slate-500 text-[11px] select-none border-b border-rose-950/40 pb-2 flex items-center justify-between">
+          <span>ZATA Antigravity Virtual Terminal &bull; Makima Sandboxed CLI</span>
+          <span className="text-rose-400 font-bold">Node v22 &bull; bash 5.2</span>
         </div>
 
-        {localLogs.map((log) => (
-          <div key={log.id} className="space-y-1">
-            {/* Command Header */}
+        {filteredLogs.map((log) => (
+          <div key={log.id} className="space-y-1 animate-in fade-in duration-100">
+            {/* Command Line Prompt */}
             <div className="flex items-center justify-between text-slate-400 text-[11px]">
-              <div className="flex items-center gap-1.5">
-                <span className="text-emerald-400 font-bold">zata@sandbox:~$</span>
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-rose-500 font-bold">zata@makima:~$</span>
                 <span className="text-white font-bold">{log.command}</span>
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                <span>by {log.executedBy}</span>
+              <div className="flex items-center gap-2 text-[10px] text-slate-500 shrink-0">
+                <span>{log.executedBy}</span>
                 <span
                   className={`px-1.5 py-0.2 rounded font-bold ${
                     log.exitCode === 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'
@@ -168,10 +221,10 @@ export default function WebTerminal({
             {/* Output */}
             {log.output && (
               <pre
-                className={`p-2.5 rounded-lg text-[11px] whitespace-pre-wrap font-mono leading-relaxed ${
+                className={`p-2 rounded-lg text-[11px] whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto ${
                   log.exitCode === 0
-                    ? 'bg-slate-900/90 text-slate-300 border border-slate-800/60'
-                    : 'bg-red-950/40 text-red-300 border border-red-900/50'
+                    ? 'bg-[#0e0714] text-rose-100/90 border border-rose-950/40'
+                    : 'bg-red-950/30 text-red-300 border border-red-900/50'
                 }`}
               >
                 {log.output}
@@ -182,15 +235,15 @@ export default function WebTerminal({
         <div ref={logsEndRef} />
       </div>
 
-      {/* Terminal Input Line */}
-      <div className="p-3 bg-slate-900/90 border-t border-slate-800 flex items-center gap-2">
-        <span className="text-emerald-400 text-xs font-bold shrink-0">zata@sandbox:~$</span>
+      {/* Interactive Command Input Line */}
+      <div className="p-2.5 bg-[#0e0714] border-t border-rose-950/60 flex items-center gap-2">
+        <span className="text-rose-500 text-xs font-bold shrink-0">zata@makima:~$</span>
         <input
           type="text"
           value={inputCommand}
           onChange={(e) => setInputCommand(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type command (e.g. ls, npm test, git status)..."
+          placeholder="Run commands (e.g. zata help, npm test, git status, ls)..."
           disabled={isExecuting}
           className="flex-1 bg-transparent text-white text-xs font-mono focus:outline-none placeholder-slate-600"
           autoFocus
@@ -198,7 +251,7 @@ export default function WebTerminal({
         <button
           onClick={() => handleRunCommand()}
           disabled={!inputCommand.trim() || isExecuting}
-          className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 transition flex items-center gap-1"
+          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold disabled:opacity-40 transition flex items-center gap-1 shadow-sm shadow-rose-600/30"
         >
           <CornerDownLeft className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Enter</span>

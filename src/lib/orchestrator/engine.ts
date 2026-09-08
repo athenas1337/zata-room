@@ -498,6 +498,32 @@ export function simulateVirtualTerminalCommand(command: string, room: any): { ou
     };
   }
 
+  if (cmd.startsWith('zata help') || cmd === 'help') {
+    return {
+      output: `ZATA CLI v2.5 — Makima Autonomous Orchestrator System\n\nAvailable commands:\n  zata help            Show available CLI commands\n  zata agent status    List active swarm agent roles and state\n  zata vfs ls          List virtual workspace files\n  npm test             Run automated unit & security tests\n  npm run build        Verify compilation & bundling\n  git status           Check VCS tree changes\n  git commit -m "..."  Record commit in virtual repository\n  ls / ls -la          List directory tree\n  cat <path>           Display content of virtual file\n  pwd                  Print working directory\n  clear                Clear terminal screen`,
+      exitCode: 0,
+    };
+  }
+
+  if (cmd.startsWith('zata agent status')) {
+    const participants = room.participants || [];
+    const lines = [
+      `Active Agent Swarm (${participants.length} configured):`,
+      ...participants.map((p: any) => `  • ${p.agentName} [${p.roleLabel}] — Model: ${p.modelName} (${p.provider})`),
+      `Turn: ${room.currentTurn || 0} / ${room.maxTurns || 50} | Status: ${room.status || 'ACTIVE'}`,
+    ];
+    return { output: lines.join('\n'), exitCode: 0 };
+  }
+
+  if (cmd.startsWith('git commit')) {
+    const match = cmd.match(/-m\s+["']?(.*?)["']?$/);
+    const msg = match ? match[1] : 'chore: automated workspace update';
+    return {
+      output: `[main ${Math.random().toString(16).slice(2, 9)}] ${msg}\n ${files.length} files changed, ${files.reduce((acc, f) => acc + (f.content?.split('\n').length || 10), 0)} insertions(+)\n Recorded to local VFS Git tree.`,
+      exitCode: 0,
+    };
+  }
+
   if (cmd === 'git status') {
     return {
       output: `On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges to be committed:\n  (use "git restore --staged <file>..." to unstage)\n\tmodified:   ${files.map(f => f.path).join('\n\tmodified:   ') || 'README.md'}\n\nno changes added to commit (use "git add" to track)`,

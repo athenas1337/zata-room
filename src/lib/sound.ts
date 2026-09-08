@@ -138,6 +138,49 @@ class SoundManager {
     osc.start();
     osc.stop(ctx.currentTime + 0.45);
   }
+
+  // Makima Jedag-Jedug Rhythmic Beat (Phonk / Cyber Bass pulse)
+  playJedagJedugBeat() {
+    if (!this.enabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // Sub-bass kick (jedag)
+    const kickOsc = ctx.createOscillator();
+    const kickGain = ctx.createGain();
+    kickOsc.type = 'sine';
+    kickOsc.frequency.setValueAtTime(150, ctx.currentTime);
+    kickOsc.frequency.exponentialRampToValueAtTime(32, ctx.currentTime + 0.15);
+
+    kickGain.gain.setValueAtTime(0.25, ctx.currentTime);
+    kickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+
+    kickOsc.connect(kickGain);
+    kickGain.connect(ctx.destination);
+
+    kickOsc.start();
+    kickOsc.stop(ctx.currentTime + 0.2);
+
+    // Secondary beat (jedug)
+    setTimeout(() => {
+      if (!this.enabled || !this.ctx) return;
+      const c = this.ctx;
+      const subOsc = c.createOscillator();
+      const subGain = c.createGain();
+      subOsc.type = 'triangle';
+      subOsc.frequency.setValueAtTime(110, c.currentTime);
+      subOsc.frequency.exponentialRampToValueAtTime(45, c.currentTime + 0.25);
+
+      subGain.gain.setValueAtTime(0.18, c.currentTime);
+      subGain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.28);
+
+      subOsc.connect(subGain);
+      subGain.connect(c.destination);
+
+      subOsc.start();
+      subOsc.stop(c.currentTime + 0.28);
+    }, 180);
+  }
 }
 
 export const soundManager = new SoundManager();
