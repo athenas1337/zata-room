@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum SafetyEventType {
+  MANUAL_STOP
+  HARD_CAP_REACHED
+  REPETITION_DETECTED
+  BUDGET_EXCEEDED
+  CHECKPOINT_WAITING
+  API_KEY_REVOKED
+  ERROR_HALT
+}
+
+enum ProviderType {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+  CUSTOM_GATEWAY
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String?           @unique
+  name         String
+  createdAt    DateTime          @default(now())
+  rooms        Room[]            @relation("CreatedRooms")
+  participants RoomParticipant[]
+}
+
+model Room {
+  id             String            @id @default(cuid())
+  name           String
+  goal           String            @db.Text
+  status         RoomStatus        @default(DRAFT)
+  currentTurn    Int               @default(0)
+  maxTurns       Int               @default(50)
+  turnDelaySec   Int               @default(5)
+  activeAgentIdx Int               @default(0)
+  isProcessing   Boolean           @default(false)
+  lockVersion    Int               @default(0)
+  safetyConfig   Json              // { repetitionThreshold: 0.85, maxBudgetUsd: 2.0, maxTurns: 50, echoThreshold: 0.8 }
+  totalTokens    Int               @default(0)
+  estimatedCost  Float             @default(0.0)
+  createdById    String
+  createdBy      User              @relation("CreatedRooms", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  participants   RoomParticipant[]
+  messages       Message[]
+  workspaceItems SharedWorkspaceItem[]
+  safetyEvents   SafetyEvent[]
+
+  @@index([status])
+  @@index([createdById])
+}
+
+model RoomParticipant {
+  id              String       @id @default(cuid())
+  roomId          String
+  userId          String
+  agentName       String
+  roleLabel       String
+  avatarColor     String       @default("#3b82f6")
+  systemPrompt    String       @db.Text
+  provider        ProviderType @default(OPENAI)
+  modelName       String
+  encryptedApiKey String       @db.Text
+  apiKeyIv        String
+  apiKeyTag       String
+  keyMask         String
+  baseUrl         String?
+  turnOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  room            Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        Message[]
+
+  @@unique([roomId, turnOrder])
+  @@index([roomId])
+}
+
+model Message {
+  id            String           @id @default(cuid())
+  roomId        String
+  participantId String?
+  senderRole    String           // "human" | "system" | agentName
+  senderName    String
+  content       String           @db.Text
+  tokenCount    Int              @default(0)
+  isCheckpoint  Boolean          @default(false)
+  toolCalls     Json?
+  turnNumber    Int              @default(0)
+  createdAt     DateTime         @default(now())
+
+  room          Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  participant   RoomParticipant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, turnNumber])
+}
+
+model SharedWorkspaceItem {
+  id        String   @id @default(cuid())
+  roomId    String
+  key       String   // e.g. "task_list", "architecture_spec", "summary"
+  title     String
+  value     Json
+  itemType  String   // "scratchpad" | "task_list" | "code_snippet" | "decision_log"
+  updatedBy String
+  updatedAt DateTime @updatedAt
+
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, key])
+  @@index([roomId])
+}
+
+model SafetyEvent {
+  id        String          @id @default(cuid())
+  roomId    String
+  type      SafetyEventType
+  detail    String          @db.Text
+  turn      Int
+  createdAt DateTime        @default(now())
+
+  room      Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
