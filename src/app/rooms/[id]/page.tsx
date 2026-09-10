@@ -44,6 +44,10 @@ import GitHubSyncModal from '@/components/ide/GitHubSyncModal';
 import SecurityScannerModal from '@/components/ide/SecurityScannerModal';
 import ArchitectureWhiteboard from '@/components/ide/ArchitectureWhiteboard';
 import MCPRegistryModal from '@/components/ide/MCPRegistryModal';
+import WebContainerSandbox from '@/components/ide/WebContainerSandbox';
+import VoiceStageModal from '@/components/room/VoiceStageModal';
+import AgentSkillMarketplaceModal, { AgentSkill } from '@/components/room/AgentSkillMarketplaceModal';
+import TimeTravelReplayer from '@/components/ide/TimeTravelReplayer';
 import {
   Bot,
   Plus,
@@ -67,6 +71,9 @@ import {
   GitBranch,
   Cpu,
   Play,
+  Clock,
+  Mic,
+  Headphones,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -82,8 +89,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
   // Clean Tabbed Mode Navigation: 'split' | 'ide' | 'chat' | 'makima_ai' | 'architecture' | 'terminal'
   const [activeMode, setActiveMode] = useState<'split' | 'ide' | 'chat' | 'makima_ai' | 'architecture' | 'terminal'>('split');
-  const [activeArchSubTab, setActiveArchSubTab] = useState<'metagpt' | 'whiteboard' | 'git_graph' | 'swarm_branch' | 'consensus'>('metagpt');
-  const [activeTerminalSubTab, setActiveTerminalSubTab] = useState<'terminal' | 'apm' | 'runner'>('terminal');
+  const [activeArchSubTab, setActiveArchSubTab] = useState<'metagpt' | 'whiteboard' | 'git_graph' | 'swarm_branch' | 'consensus' | 'time_travel'>('metagpt');
+  const [activeTerminalSubTab, setActiveTerminalSubTab] = useState<'terminal' | 'apm' | 'runner' | 'wasm'>('terminal');
   const [showLivePreview, setShowLivePreview] = useState(false);
 
   // Modals state
@@ -94,6 +101,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const [isGitHubSyncOpen, setIsGitHubSyncOpen] = useState(false);
   const [isSecurityScannerOpen, setIsSecurityScannerOpen] = useState(false);
   const [isMCPRegistryOpen, setIsMCPRegistryOpen] = useState(false);
+  const [isVoiceStageOpen, setIsVoiceStageOpen] = useState(false);
+  const [isSkillMarketplaceOpen, setIsSkillMarketplaceOpen] = useState(false);
   const [approvalModalData, setApprovalModalData] = useState<{
     filePath: string;
     proposedContent: string;
@@ -590,6 +599,32 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         <div className="flex items-center gap-2">
           <PhonkRadioPlayer />
 
+          {/* P2P Voice Stage Modal Trigger */}
+          <button
+            onClick={() => {
+              soundManager.playClick();
+              setIsVoiceStageOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-950 to-purple-950 hover:from-rose-900 hover:to-purple-900 border border-rose-700/60 text-rose-200 hover:text-white text-xs font-semibold transition shadow-sm"
+            title="P2P Audio Voice Stage (Discord-like)"
+          >
+            <Radio className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
+            <span className="hidden md:inline">Voice Stage</span>
+          </button>
+
+          {/* Agent Skill & Plugin Marketplace Hub */}
+          <button
+            onClick={() => {
+              soundManager.playClick();
+              setIsSkillMarketplaceOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#120718] hover:bg-[#1a0a22] border border-rose-950 hover:border-amber-700/60 text-slate-300 hover:text-amber-300 text-xs font-semibold transition shadow-sm"
+            title="Agent Skill & Plugin Marketplace"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden md:inline">Skill Hub</span>
+          </button>
+
           {/* 1-Click Export to GitHub */}
           <button
             onClick={() => setIsGitHubSyncOpen(true)}
@@ -919,8 +954,9 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 {[
                   { id: 'metagpt', label: 'MetaGPT PRD & SOP' },
                   { id: 'whiteboard', label: 'System Topology' },
-                  { id: 'swarm_branch', label: 'Tree-of-Thoughts Branches' },
-                  { id: 'consensus', label: 'Multi-Model Consensus' },
+                  { id: 'swarm_branch', label: 'Tree-of-Thoughts' },
+                  { id: 'consensus', label: 'Consensus Arena' },
+                  { id: 'time_travel', label: 'Time-Travel Replay' },
                   { id: 'git_graph', label: 'Git Commit Tree (Aider)' },
                 ].map((st) => (
                   <button
@@ -972,6 +1008,18 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
               {activeArchSubTab === 'consensus' && (
                 <ConsensusDebateArena />
               )}
+              {activeArchSubTab === 'time_travel' && (
+                <TimeTravelReplayer
+                  messages={room.messages}
+                  virtualFiles={virtualFiles}
+                  currentTurn={room.currentTurn}
+                  maxTurns={room.maxTurns}
+                  onRollbackToTurn={(turn) => {
+                    handleSendDirectorMessage(`[Time-Travel Rollback]: Reverted swarm state to Turn ${turn}.`);
+                    fetchRoomData();
+                  }}
+                />
+              )}
               {activeArchSubTab === 'git_graph' && (
                 <GitGraphViewer roomId={roomId} />
               )}
@@ -991,6 +1039,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 {[
                   { id: 'terminal', label: 'Web Terminal & Self-Healing' },
                   { id: 'runner', label: 'In-Browser JS Sandbox' },
+                  { id: 'wasm', label: 'WASM Node Sandbox' },
                   { id: 'apm', label: 'Observability & Token Flame Graph' },
                 ].map((st) => (
                   <button
@@ -1048,6 +1097,15 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="h-full">
                   <InBrowserRunner
                     files={virtualFiles.map((f) => ({ path: f.path, content: f.content }))}
+                  />
+                </div>
+              )}
+
+              {activeTerminalSubTab === 'wasm' && (
+                <div className="h-full">
+                  <WebContainerSandbox
+                    files={virtualFiles.map((f) => ({ path: f.path, content: f.content }))}
+                    onSaveOutputToVfs={handleSaveVfsFile}
                   />
                 </div>
               )}
@@ -1143,6 +1201,24 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       <MCPRegistryModal
         isOpen={isMCPRegistryOpen}
         onClose={() => setIsMCPRegistryOpen(false)}
+      />
+
+      {/* P2P Audio Voice Stage Modal */}
+      <VoiceStageModal
+        isOpen={isVoiceStageOpen}
+        onClose={() => setIsVoiceStageOpen(false)}
+        roomName={room.name}
+        isHost={isHost}
+      />
+
+      {/* Agent Skill & Plugin Marketplace Hub */}
+      <AgentSkillMarketplaceModal
+        isOpen={isSkillMarketplaceOpen}
+        onClose={() => setIsSkillMarketplaceOpen(false)}
+        onInstallSkill={(skill) => {
+          handleSendDirectorMessage(`[Skill Installed: ${skill.name}]: ${skill.systemDirective}`);
+          soundManager.playSuccess();
+        }}
       />
     </div>
   );

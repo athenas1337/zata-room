@@ -16,6 +16,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
+import MakimaLiveAvatar from '@/components/brand/MakimaLiveAvatar';
 
 interface Message {
   id: string;
@@ -244,105 +245,149 @@ export default function MakimaAIChatTab({
         </button>
       </div>
 
-      {/* Chat Messages Stream */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
-        {messages.map((m) => {
-          const isAssistant = m.role === 'assistant';
-          return (
-            <div
-              key={m.id}
-              className={`flex gap-3 max-w-3xl ${
-                isAssistant ? 'mr-auto' : 'ml-auto flex-row-reverse'
-              }`}
-            >
-              {/* Avatar Icon */}
-              <div className="shrink-0 pt-0.5">
-                {isAssistant ? (
-                  <div className="h-7 w-7 rounded-lg overflow-hidden border border-rose-600/60 shadow">
-                    <img
-                      src="/images/makima_avatar.jpg"
-                      alt="Makima"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-7 w-7 rounded-lg bg-rose-900 border border-rose-700 flex items-center justify-center text-rose-200 shadow">
-                    <User className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-
-              {/* Bubble Body */}
+      {/* 2-Column Responsive Body: Chat on Left, Makima Live Avatar on Right */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Chat Messages Stream */}
+        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          {messages.map((m) => {
+            const isAssistant = m.role === 'assistant';
+            return (
               <div
-                className={`p-3.5 rounded-2xl space-y-1.5 relative group leading-relaxed shadow-lg ${
-                  isAssistant
-                    ? 'bg-[#120718] border border-rose-950/80 text-rose-100/90'
-                    : 'bg-gradient-to-r from-rose-700 to-red-700 text-white'
+                key={m.id}
+                className={`flex gap-3 max-w-3xl ${
+                  isAssistant ? 'mr-auto' : 'ml-auto flex-row-reverse'
                 }`}
               >
-                <div className="flex items-center justify-between gap-4 text-[10px] text-slate-400 border-b border-rose-950/40 pb-1">
-                  <span className="font-bold text-rose-300">
-                    {isAssistant ? 'Makima' : 'Human Director'}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span>{m.timestamp}</span>
-                    <button
-                      onClick={() => handleCopyMessage(m.content, m.id)}
-                      className="text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition"
-                      title="Salin Pesan"
-                    >
-                      {copiedId === m.id ? (
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </button>
-                  </div>
+                {/* Avatar Icon */}
+                <div className="shrink-0 pt-0.5">
+                  {isAssistant ? (
+                    <div className="h-7 w-7 rounded-lg overflow-hidden border border-rose-600/60 shadow">
+                      <img
+                        src="/images/makima_avatar.jpg"
+                        alt="Makima"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-7 w-7 rounded-lg bg-rose-900 border border-rose-700 flex items-center justify-center text-rose-200 shadow">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
                 </div>
 
-                <div className="whitespace-pre-wrap text-xs selection:bg-rose-600 selection:text-white">
-                  {m.content}
-                </div>
-
-                {isAssistant && onDispatchToSwarm && (
-                  <div className="pt-2 border-t border-rose-950/40 flex items-center justify-end">
-                    <button
-                      onClick={() => {
-                        soundManager.playCheckpoint();
-                        onDispatchToSwarm(m.content);
-                      }}
-                      className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/50 transition"
-                      title="Kirim saran Makima ke antrean Swarm IDE"
-                    >
-                      <Terminal className="h-3 w-3" />
-                      <span>Dispatch to Swarm IDE</span>
-                    </button>
+                {/* Bubble Body */}
+                <div
+                  className={`p-3.5 rounded-2xl space-y-1.5 relative group leading-relaxed shadow-lg ${
+                    isAssistant
+                      ? 'bg-[#120718] border border-rose-950/80 text-rose-100/90'
+                      : 'bg-gradient-to-r from-rose-700 to-red-700 text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4 text-[10px] text-slate-400 border-b border-rose-950/40 pb-1">
+                    <span className="font-bold text-rose-300">
+                      {isAssistant ? 'Makima' : 'Human Director'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span>{m.timestamp}</span>
+                      <button
+                        onClick={() => handleCopyMessage(m.content, m.id)}
+                        className="text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition"
+                        title="Salin Pesan"
+                      >
+                        {copiedId === m.id ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                )}
+
+                  <div className="whitespace-pre-wrap text-xs selection:bg-rose-600 selection:text-white">
+                    {m.content}
+                  </div>
+
+                  {isAssistant && onDispatchToSwarm && (
+                    <div className="pt-2 border-t border-rose-950/40 flex items-center justify-end">
+                      <button
+                        onClick={() => {
+                          soundManager.playCheckpoint();
+                          onDispatchToSwarm(m.content);
+                        }}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/50 transition"
+                        title="Kirim saran Makima ke antrean Swarm IDE"
+                      >
+                        <Terminal className="h-3 w-3" />
+                        <span>Dispatch to Swarm IDE</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {loading && (
+            <div className="flex items-center gap-3 text-slate-400 text-xs">
+              <div className="h-7 w-7 rounded-lg overflow-hidden border border-rose-600/60 shadow shrink-0">
+                <img
+                  src="/images/makima_avatar.jpg"
+                  alt="Makima"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="p-3 rounded-2xl bg-[#120718] border border-rose-950 flex items-center gap-2">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-rose-500" />
+                <span className="italic text-[11px] text-rose-300">
+                  Makima sedang memproses instruksi melalui Gemini neural engine...
+                </span>
               </div>
             </div>
-          );
-        })}
+          )}
 
-        {loading && (
-          <div className="flex items-center gap-3 text-slate-400 text-xs">
-            <div className="h-7 w-7 rounded-lg overflow-hidden border border-rose-600/60 shadow shrink-0">
-              <img
-                src="/images/makima_avatar.jpg"
-                alt="Makima"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="p-3 rounded-2xl bg-[#120718] border border-rose-950 flex items-center gap-2">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-rose-500" />
-              <span className="italic text-[11px] text-rose-300">
-                Makima sedang memproses instruksi melalui Gemini neural engine...
-              </span>
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Right Panel: Live Animated Makima Avatar & Companion */}
+        <div className="hidden lg:flex w-72 flex-col items-center justify-between p-4 bg-[#0e0413]/80 border-l border-rose-950/70 overflow-y-auto">
+          <div className="w-full flex flex-col items-center">
+            <MakimaLiveAvatar
+              isSpeaking={loading}
+              isThinking={loading}
+              size="md"
+            />
+
+            <div className="w-full mt-4 p-3 rounded-xl bg-[#14061a] border border-rose-950 text-[11px] text-slate-300 space-y-2">
+              <div className="font-bold text-rose-300 flex items-center gap-1.5 text-xs">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Neural Overseer Status</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed text-[10px]">
+                Mata konsentris Makima memantau kursor dan aktivitas koding di seluruh workspace secara real-time. Gerakan bibir sinkron dengan instruksi.
+              </p>
             </div>
           </div>
-        )}
 
-        <div ref={messagesEndRef} />
+          <div className="w-full mt-3 pt-3 border-t border-rose-950/60">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mb-2">
+              Quick Directives
+            </span>
+            <div className="space-y-1.5">
+              {samplePrompts.slice(0, 3).map((p, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setInput(p);
+                    soundManager.playClick();
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-[#14061a] hover:bg-rose-950/70 border border-rose-950 text-[10px] text-slate-300 hover:text-white transition line-clamp-1"
+                >
+                  &rsaquo; {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Suggested Quick Prompt Chips */}
