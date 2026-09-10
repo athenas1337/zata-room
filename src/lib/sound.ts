@@ -194,6 +194,31 @@ class SoundManager {
     osc.stop(ctx.currentTime + 0.45);
   }
 
+  // Cheerful success tone
+  playSuccess() {
+    if (!this.enabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16); // G5
+    osc.frequency.setValueAtTime(1046.5, ctx.currentTime + 0.24); // C6
+
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  }
+
   // F45: Holographic glitch on safety alert
   playGlitchSound() {
     if (!this.enabled) return;

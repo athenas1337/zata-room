@@ -33,6 +33,17 @@ import WebTerminal from '@/components/room/WebTerminal';
 import SelfHealingController from '@/components/ide/SelfHealingController';
 import HumanApprovalModal from '@/components/room/HumanApprovalModal';
 import CommunityFooter from '@/components/room/CommunityFooter';
+import MakimaAIChatTab from '@/components/room/MakimaAIChatTab';
+import InBrowserRunner from '@/components/ide/InBrowserRunner';
+import LivePreviewCanvas from '@/components/ide/LivePreviewCanvas';
+import SwarmBranchController from '@/components/room/SwarmBranchController';
+import VoiceCommandDispatcher from '@/components/room/VoiceCommandDispatcher';
+import ObservabilityDashboard from '@/components/ide/ObservabilityDashboard';
+import ConsensusDebateArena from '@/components/room/ConsensusDebateArena';
+import GitHubSyncModal from '@/components/ide/GitHubSyncModal';
+import SecurityScannerModal from '@/components/ide/SecurityScannerModal';
+import ArchitectureWhiteboard from '@/components/ide/ArchitectureWhiteboard';
+import MCPRegistryModal from '@/components/ide/MCPRegistryModal';
 import {
   Bot,
   Plus,
@@ -50,6 +61,12 @@ import {
   Terminal,
   Columns,
   Sparkles,
+  Github,
+  ShieldAlert,
+  Swords,
+  GitBranch,
+  Cpu,
+  Play,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -63,15 +80,20 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Clean Tabbed Mode Navigation: 'ide' | 'chat' | 'architecture' | 'terminal' | 'split'
-  const [activeMode, setActiveMode] = useState<'split' | 'ide' | 'chat' | 'architecture' | 'terminal'>('split');
-  const [activeArchSubTab, setActiveArchSubTab] = useState<'metagpt' | 'whiteboard' | 'git_graph'>('metagpt');
+  // Clean Tabbed Mode Navigation: 'split' | 'ide' | 'chat' | 'makima_ai' | 'architecture' | 'terminal'
+  const [activeMode, setActiveMode] = useState<'split' | 'ide' | 'chat' | 'makima_ai' | 'architecture' | 'terminal'>('split');
+  const [activeArchSubTab, setActiveArchSubTab] = useState<'metagpt' | 'whiteboard' | 'git_graph' | 'swarm_branch' | 'consensus'>('metagpt');
+  const [activeTerminalSubTab, setActiveTerminalSubTab] = useState<'terminal' | 'apm' | 'runner'>('terminal');
+  const [showLivePreview, setShowLivePreview] = useState(false);
 
   // Modals state
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isGodModeOpen, setIsGodModeOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
+  const [isGitHubSyncOpen, setIsGitHubSyncOpen] = useState(false);
+  const [isSecurityScannerOpen, setIsSecurityScannerOpen] = useState(false);
+  const [isMCPRegistryOpen, setIsMCPRegistryOpen] = useState(false);
   const [approvalModalData, setApprovalModalData] = useState<{
     filePath: string;
     proposedContent: string;
@@ -568,6 +590,36 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         <div className="flex items-center gap-2">
           <PhonkRadioPlayer />
 
+          {/* 1-Click Export to GitHub */}
+          <button
+            onClick={() => setIsGitHubSyncOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#120718] hover:bg-[#1a0a22] border border-rose-950 hover:border-rose-700/60 text-slate-300 hover:text-white text-xs font-semibold transition shadow-sm"
+            title="Export VFS to GitHub Repo or Pull Request"
+          >
+            <Github className="h-3.5 w-3.5 text-slate-400" />
+            <span className="hidden md:inline">GitHub</span>
+          </button>
+
+          {/* Security & Secret Leak Scanner */}
+          <button
+            onClick={() => setIsSecurityScannerOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#120718] hover:bg-[#1a0a22] border border-rose-950 hover:border-amber-700/60 text-slate-300 hover:text-amber-300 text-xs font-semibold transition shadow-sm"
+            title="OWASP & Secret Leak Scanner"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden md:inline">Audit</span>
+          </button>
+
+          {/* Anthropic MCP Tool Registry */}
+          <button
+            onClick={() => setIsMCPRegistryOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#120718] hover:bg-[#1a0a22] border border-rose-950 hover:border-rose-700/60 text-slate-300 hover:text-rose-300 text-xs font-semibold transition shadow-sm"
+            title="Model Context Protocol (MCP) Tools"
+          >
+            <Cpu className="h-3.5 w-3.5 text-rose-400" />
+            <span className="hidden md:inline">MCP</span>
+          </button>
+
           {/* Developer Superuser Secret Trigger (Ctrl+Shift+A) */}
           <button
             onClick={() => setIsGodModeOpen(true)}
@@ -619,8 +671,9 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             { id: 'split', label: 'Split Studio', icon: Columns },
             { id: 'ide', label: 'Cloud IDE', icon: Code2 },
             { id: 'chat', label: 'Swarm Chat', icon: MessageSquare },
-            { id: 'architecture', label: 'Architecture & SOP', icon: Layers },
-            { id: 'terminal', label: 'Terminal & Tools', icon: Terminal },
+            { id: 'makima_ai', label: 'Talk to Makima AI', icon: Sparkles, special: true },
+            { id: 'architecture', label: 'Architecture & Swarm', icon: Layers },
+            { id: 'terminal', label: 'Terminal & APM', icon: Terminal },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeMode === tab.id;
@@ -633,11 +686,15 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
                   isActive
-                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    ? tab.special
+                      ? 'bg-gradient-to-r from-rose-600 via-purple-600 to-amber-600 text-white shadow-lg shadow-rose-600/40 ring-1 ring-amber-400/50'
+                      : 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    : tab.special
+                    ? 'text-rose-300 hover:text-white hover:bg-rose-950/40 border border-rose-800/40'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className={`h-3.5 w-3.5 ${tab.special && !isActive ? 'text-amber-400 animate-pulse' : ''}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -720,7 +777,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* 4. MAIN WORKBENCH VIEW ACCORDING TO ACTIVE MODE TAB */}
       <div className="flex-1 px-4 mt-2">
-        {/* MODE 1: SPLIT STUDIO (Chat Left, IDE Right) */}
+        {/* MODE 1: SPLIT STUDIO (Chat Left, IDE Right / Live Preview) */}
         {activeMode === 'split' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[720px]">
             <div className="lg:col-span-6 h-[740px] flex flex-col space-y-3">
@@ -738,18 +795,51 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 />
               </div>
             </div>
-            <div className="lg:col-span-6 h-[740px]">
-              <SharedWorkspace
-                roomId={roomId}
-                roomName={room.name}
-                workspaceItems={room.workspaceItems}
-                safetyEvents={room.safetyEvents}
-                virtualFiles={virtualFiles}
-                terminalLogs={terminalLogs}
-                isHost={isHost}
-                onFilesUpdated={fetchRoomData}
-                onTerminalExecuted={fetchRoomData}
-              />
+            <div className="lg:col-span-6 h-[740px] flex flex-col">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Code2 className="h-3.5 w-3.5 text-rose-400" />
+                  <span>{showLivePreview ? 'Hot-Reload Browser Canvas' : 'Virtual Cloud IDE'}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    soundManager.playClick();
+                    setShowLivePreview(!showLivePreview);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                    showLivePreview
+                      ? 'bg-rose-600 text-white shadow'
+                      : 'bg-[#120718] border border-rose-900/60 text-rose-300 hover:bg-rose-950'
+                  }`}
+                >
+                  <Play className="h-3 w-3" />
+                  <span>{showLivePreview ? 'Back to Editor' : '⚡ Split Hot-Reload'}</span>
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0">
+                {showLivePreview ? (
+                  <LivePreviewCanvas
+                    files={virtualFiles.map((f) => ({
+                      path: f.path,
+                      content: f.content,
+                      language: f.language,
+                    }))}
+                  />
+                ) : (
+                  <SharedWorkspace
+                    roomId={roomId}
+                    roomName={room.name}
+                    workspaceItems={room.workspaceItems}
+                    safetyEvents={room.safetyEvents}
+                    virtualFiles={virtualFiles}
+                    terminalLogs={terminalLogs}
+                    isHost={isHost}
+                    onFilesUpdated={fetchRoomData}
+                    onTerminalExecuted={fetchRoomData}
+                  />
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -774,10 +864,21 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         {/* MODE 3: AGENT SWARM CHAT FULLSCREEN */}
         {activeMode === 'chat' && (
           <div className="h-[740px] flex flex-col space-y-3">
-            <MultiPhasePipeline
-              currentTurn={room.currentTurn}
-              maxTurns={room.maxTurns}
-            />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex-1">
+                <MultiPhasePipeline
+                  currentTurn={room.currentTurn}
+                  maxTurns={room.maxTurns}
+                />
+              </div>
+              <div className="shrink-0">
+                <VoiceCommandDispatcher
+                  onDispatchDirective={(voiceDirective) => {
+                    handleSendDirectorMessage(`[Voice Directive]: ${voiceDirective}`);
+                  }}
+                />
+              </div>
+            </div>
             <div className="flex-1 min-h-0">
               <AgentChatView
                 roomId={roomId}
@@ -790,20 +891,36 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* MODE 4: ARCHITECTURE & SOP (MetaGPT PRD, Whiteboard Canvas, Git Graph) */}
+        {/* MODE: TALK TO MAKIMA AI (Google Gemini 2.0 / 1.5 + Anti-Jailbreak Shield) */}
+        {activeMode === 'makima_ai' && (
+          <div className="h-[740px]">
+            <MakimaAIChatTab
+              roomId={roomId}
+              roomName={room.name}
+              onDispatchToSwarm={(directive) => {
+                handleSendDirectorMessage(`[Makima Strategic Directive]: ${directive}`);
+                setActiveMode('chat');
+              }}
+            />
+          </div>
+        )}
+
+        {/* MODE 4: ARCHITECTURE & SOP (MetaGPT PRD, Topology Canvas, Git Graph, Swarm Branches, Consensus Arena) */}
         {activeMode === 'architecture' && (
           <div className="h-[740px] bg-[#09030c] border border-rose-950/70 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
             {/* Sub-tabs */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0e0513] border-b border-rose-950/60">
+            <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-[#0e0513] border-b border-rose-950/60 gap-2">
               <span className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="h-4 w-4 text-rose-400" />
                 <span>Architecture &amp; MetaGPT Engineering Suite</span>
               </span>
 
-              <div className="flex items-center gap-1 bg-[#130718] p-1 rounded-xl border border-rose-950">
+              <div className="flex flex-wrap items-center gap-1 bg-[#130718] p-1 rounded-xl border border-rose-950">
                 {[
                   { id: 'metagpt', label: 'MetaGPT PRD & SOP' },
-                  { id: 'whiteboard', label: 'Whiteboard Canvas' },
+                  { id: 'whiteboard', label: 'System Topology' },
+                  { id: 'swarm_branch', label: 'Tree-of-Thoughts Branches' },
+                  { id: 'consensus', label: 'Multi-Model Consensus' },
                   { id: 'git_graph', label: 'Git Commit Tree (Aider)' },
                 ].map((st) => (
                   <button
@@ -814,7 +931,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                     }}
                     className={`px-3 py-1 rounded-lg text-[11px] font-bold transition ${
                       activeArchSubTab === st.id
-                        ? 'bg-rose-600 text-white'
+                        ? 'bg-rose-600 text-white shadow-sm'
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -833,7 +950,27 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                 />
               )}
               {activeArchSubTab === 'whiteboard' && (
-                <WhiteboardCanvas roomId={roomId} />
+                <ArchitectureWhiteboard
+                  onGenerateCode={(arch) => {
+                    handleSaveVfsFile(
+                      'architecture-spec.json',
+                      JSON.stringify(arch, null, 2)
+                    );
+                    soundManager.playSuccess();
+                  }}
+                />
+              )}
+              {activeArchSubTab === 'swarm_branch' && (
+                <SwarmBranchController
+                  roomId={roomId}
+                  onMergeBranch={(branchName) => {
+                    handleSendDirectorMessage(`[Branch Merged]: Successfully reconciled ${branchName} into main production tree.`);
+                    fetchRoomData();
+                  }}
+                />
+              )}
+              {activeArchSubTab === 'consensus' && (
+                <ConsensusDebateArena />
               )}
               {activeArchSubTab === 'git_graph' && (
                 <GitGraphViewer roomId={roomId} />
@@ -842,35 +979,89 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* MODE 5: TERMINAL & DIAGNOSTICS */}
+        {/* MODE 5: TERMINAL, IN-BROWSER RUNNER & APM OBSERVABILITY */}
         {activeMode === 'terminal' && (
-          <div className="h-[740px] grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-8 h-full">
-              <WebTerminal
-                roomId={roomId}
-                logs={terminalLogs}
-                onCommandExecuted={fetchRoomData}
-                isHost={isHost}
-              />
-            </div>
-            <div className="lg:col-span-4 h-full flex flex-col space-y-3 overflow-y-auto">
-              <SwarmTopologySelector />
-              <div className="flex-1 bg-[#09030c] border border-rose-950/70 rounded-2xl overflow-hidden p-2">
-                <SelfHealingController
-                  roomId={roomId}
-                  files={virtualFiles}
-                  logs={terminalLogs}
-                  onApplyFix={handleSaveVfsFile}
-                  onRunTestCommand={async () => {
-                    await fetch(`/api/rooms/${roomId}/terminal`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ command: 'npm test', executedBy: 'Self-Healing Engine' }),
-                    });
-                    fetchRoomData();
-                  }}
-                />
+          <div className="h-[740px] flex flex-col space-y-3">
+            <div className="flex flex-wrap items-center justify-between px-3 py-2 bg-[#0d0412] rounded-xl border border-rose-950/70 gap-2">
+              <span className="text-xs font-bold text-rose-300 flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-rose-400" />
+                <span>Runtime Diagnostics, Client Sandbox &amp; Telemetry</span>
+              </span>
+              <div className="flex items-center gap-1 bg-[#15071a] p-1 rounded-xl border border-rose-950">
+                {[
+                  { id: 'terminal', label: 'Web Terminal & Self-Healing' },
+                  { id: 'runner', label: 'In-Browser JS Sandbox' },
+                  { id: 'apm', label: 'Observability & Token Flame Graph' },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveTerminalSubTab(st.id as any);
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                      activeTerminalSubTab === st.id
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            <div className="flex-1 min-h-0">
+              {activeTerminalSubTab === 'terminal' && (
+                <div className="h-full grid grid-cols-1 lg:grid-cols-12 gap-4">
+                  <div className="lg:col-span-8 h-full">
+                    <WebTerminal
+                      roomId={roomId}
+                      logs={terminalLogs}
+                      onCommandExecuted={fetchRoomData}
+                      isHost={isHost}
+                    />
+                  </div>
+                  <div className="lg:col-span-4 h-full flex flex-col space-y-3 overflow-y-auto">
+                    <SwarmTopologySelector />
+                    <div className="flex-1 bg-[#09030c] border border-rose-950/70 rounded-2xl overflow-hidden p-2">
+                      <SelfHealingController
+                        roomId={roomId}
+                        files={virtualFiles}
+                        logs={terminalLogs}
+                        onApplyFix={handleSaveVfsFile}
+                        onRunTestCommand={async () => {
+                          await fetch(`/api/rooms/${roomId}/terminal`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ command: 'npm test', executedBy: 'Self-Healing Engine' }),
+                          });
+                          fetchRoomData();
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTerminalSubTab === 'runner' && (
+                <div className="h-full">
+                  <InBrowserRunner
+                    files={virtualFiles.map((f) => ({ path: f.path, content: f.content }))}
+                  />
+                </div>
+              )}
+
+              {activeTerminalSubTab === 'apm' && (
+                <div className="h-full">
+                  <ObservabilityDashboard
+                    totalTokens={room.totalTokens}
+                    estimatedCost={room.estimatedCost}
+                    turnCount={room.currentTurn}
+                    maxTurns={room.maxTurns}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -932,6 +1123,26 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         onInstantStop={handleInstantStop}
         onResume={handleResumeLoop}
         onOpenGodMode={() => setIsGodModeOpen(true)}
+      />
+
+      {/* Advanced GitHub Paradigm Modals */}
+      <GitHubSyncModal
+        isOpen={isGitHubSyncOpen}
+        onClose={() => setIsGitHubSyncOpen(false)}
+        files={virtualFiles.map((f) => ({ path: f.path, content: f.content }))}
+        roomName={room.name}
+      />
+
+      <SecurityScannerModal
+        isOpen={isSecurityScannerOpen}
+        onClose={() => setIsSecurityScannerOpen(false)}
+        files={virtualFiles.map((f) => ({ path: f.path, content: f.content }))}
+        onAutoFix={handleSaveVfsFile}
+      />
+
+      <MCPRegistryModal
+        isOpen={isMCPRegistryOpen}
+        onClose={() => setIsMCPRegistryOpen(false)}
       />
     </div>
   );
