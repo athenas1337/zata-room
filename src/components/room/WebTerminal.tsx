@@ -194,7 +194,7 @@ export default function WebTerminal({
       {/* Terminal Output Stream */}
       <div className="flex-1 p-3 overflow-y-auto space-y-2.5 text-xs bg-[#070309]">
         <div className="text-slate-500 text-[11px] select-none border-b border-rose-950/40 pb-2 flex items-center justify-between">
-          <span>ZATA Antigravity Virtual Terminal &bull; Makima Sandboxed CLI</span>
+          <span>ZATA Antigravity Virtual Terminal &bull; Sandboxed CLI</span>
           <span className="text-rose-400 font-bold">Node v22 &bull; bash 5.2</span>
         </div>
 
@@ -203,7 +203,7 @@ export default function WebTerminal({
             {/* Command Line Prompt */}
             <div className="flex items-center justify-between text-slate-400 text-[11px]">
               <div className="flex items-center gap-1.5 truncate">
-                <span className="text-rose-500 font-bold">zata@makima:~$</span>
+                <span className="text-rose-500 font-bold">zata@cloud:~$</span>
                 <span className="text-white font-bold">{log.command}</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] text-slate-500 shrink-0">
@@ -237,7 +237,7 @@ export default function WebTerminal({
 
       {/* Interactive Command Input Line */}
       <div className="p-2.5 bg-[#0e0714] border-t border-rose-950/60 flex items-center gap-2">
-        <span className="text-rose-500 text-xs font-bold shrink-0">zata@makima:~$</span>
+        <span className="text-rose-500 text-xs font-bold shrink-0">zata@cloud:~$</span>
         <input
           type="text"
           value={inputCommand}

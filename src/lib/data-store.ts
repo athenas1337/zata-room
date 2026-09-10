@@ -426,7 +426,7 @@ async function checkPrismaAvailable(): Promise<boolean> {
   try {
     await Promise.race([
       db.$queryRaw`SELECT 1`,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 6000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 3500)),
     ]);
     isPrismaAvailable = true;
     await ensureDefaultUser();

@@ -83,7 +83,7 @@ export default function CommandPalette({
     },
     {
       id: 'beat',
-      title: 'Play Makima Jedag-Jedug Beat Drop',
+      title: 'Play Phonk 808 Beat Drop',
       category: 'Audio',
       icon: Volume2,
       action: () => soundManager.playJedagJedugBeat(),

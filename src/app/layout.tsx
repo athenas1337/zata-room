@@ -5,8 +5,8 @@ import { Shield, Zap, Sparkles, Search, Command, Radio, Activity } from "lucide-
 import MakimaLogo from "@/components/brand/MakimaLogo";
 
 export const metadata: Metadata = {
-  title: "ZATA Agentic Room — Makima Autonomous AI Collaboration IDE",
-  description: "Next-gen GitHub-grade Cloud IDE and multi-agent AI collaboration platform. Orchestrated by Makima autonomous swarm with sandboxed VFS and interactive terminal.",
+  title: "ZATA Agentic Room — Autonomous AI Collaboration Cloud IDE",
+  description: "Next-gen GitHub-grade Cloud IDE and multi-agent AI collaboration platform with sandboxed VFS and interactive terminal.",
 };
 
 export default function RootLayout({
@@ -82,7 +82,7 @@ export default function RootLayout({
             <div className="flex items-center gap-2">
               <span className="text-rose-400 font-bold">ZATA COMMUNITY</span>
               <span>&bull;</span>
-              <span>Makima Autonomous Swarm IDE &bull; 100% Vercel Free-Tier</span>
+              <span>Autonomous Swarm Cloud IDE &bull; 100% Vercel Free-Tier</span>
             </div>
             <div className="flex items-center gap-3 text-slate-500 text-[11px]">
               <Link href="/status" className="hover:text-rose-300 transition">

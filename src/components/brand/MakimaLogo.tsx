@@ -142,30 +142,28 @@ export default function MakimaLogo({
         </span>
       </div>
 
-      {/* Brand Typography with ZATA COMMUNITY Badge */}
+      {/* Brand Typography with Red-to-Black Gradient Aesthetic */}
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
-          <span className="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-rose-100 to-rose-400 bg-clip-text text-transparent flex items-center gap-1.5">
-            <span>ZATA</span>
-            <span className="text-rose-500 drop-shadow-[0_0_12px_rgba(225,29,72,0.8)]">Agentic</span>
-            <span className="text-slate-100">Room</span>
+          <span className="font-black text-base sm:text-lg tracking-wider uppercase bg-gradient-to-r from-rose-500 via-red-600 to-stone-900 bg-clip-text text-transparent drop-shadow-[0_0_14px_rgba(225,29,72,0.45)]">
+            ZATA AGENTIC ROOM
           </span>
 
-          <span className="hidden sm:inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-700/60 text-rose-300 font-bold uppercase tracking-wider shadow-sm">
+          <span className="hidden sm:inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-950/70 border border-rose-800/60 text-rose-300 font-bold uppercase tracking-wider shadow-sm">
             <Radio className="h-2.5 w-2.5 text-rose-400 animate-pulse" />
-            Studio IDE
+            Cloud IDE
           </span>
         </div>
 
-        {/* Dedicated requested "ZATA COMMUNITY" banner */}
+        {/* Dedicated "ZATA COMMUNITY" banner without repetitive Makima text */}
         {showSubtitle && (
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-[10px] font-black tracking-widest text-amber-400 uppercase bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40 shadow-sm flex items-center gap-1">
               <Sparkles className="h-2.5 w-2.5 text-amber-400" />
               ZATA COMMUNITY
             </span>
-            <span className="text-[10px] text-slate-400 hidden md:inline">
-              &bull; Makima Autonomous Swarm
+            <span className="text-[10px] text-slate-400 font-mono hidden md:inline">
+              &bull; Autonomous AI Swarm
             </span>
           </div>
         )}

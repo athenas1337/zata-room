@@ -96,7 +96,7 @@ export default function LobbyPage() {
   // Hero interactive CLI simulator command
   const [heroCommand, setHeroCommand] = useState('npm test');
   const [heroOutput, setHeroOutput] = useState(
-    'PASS src/core/engine.spec.ts\n ✓ anti-infinite-loop guard active (18ms)\n ✓ makima swarm synchronization passed (12ms)\nTest Suites: 1 passed, 1 total\nTime: 0.624s'
+    'PASS src/core/engine.spec.ts\n ✓ anti-infinite-loop guard active (18ms)\n ✓ autonomous swarm synchronization passed (12ms)\nTest Suites: 1 passed, 1 total\nTime: 0.624s'
   );
 
   // Load host secrets from localStorage
@@ -131,9 +131,12 @@ export default function LobbyPage() {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/rooms');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('/api/rooms', { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.rooms)) {
         setRooms(data.rooms);
       }
     } catch (err) {
@@ -236,9 +239,9 @@ export default function LobbyPage() {
     if (cmd === 'npm test') {
       setHeroOutput('PASS src/core/engine.spec.ts\n ✓ anti-loop repetition threshold checked\n ✓ sandboxed VFS security clean\nAll 6 tests passed in 0.41s');
     } else if (cmd === 'git status') {
-      setHeroOutput('On branch main\nChanges to be committed:\n  modified: src/orchestrator/makima.ts\n  modified: README.md\nSwarm ready to commit.');
+      setHeroOutput('On branch main\nChanges to be committed:\n  modified: src/orchestrator/zata.ts\n  modified: README.md\nSwarm ready to commit.');
     } else if (cmd === 'zata agent status') {
-      setHeroOutput('Makima Swarm: 3 agents online\n • Architect Alpha [Lead]\n • Coder Beta [Autonomous Fullstack]\n • Auditor Gamma [Security Critic]');
+      setHeroOutput('ZATA Swarm: 3 agents online\n • Architect Alpha [Lead]\n • Coder Beta [Autonomous Fullstack]\n • Auditor Gamma [Security Critic]');
     } else {
       setHeroOutput(`[Executed]: ${cmd}\nexit code: 0\nSandboxed execution verified.`);
     }
@@ -262,13 +265,13 @@ export default function LobbyPage() {
 
   return (
     <div className="max-w-[1750px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-      {/* 1. HERO SECTION: Makima Cyber-Noir & Interactive Playground */}
+      {/* 1. HERO SECTION: Cyber-Noir & Interactive Playground */}
       <div className="relative rounded-3xl border border-rose-950/60 bg-gradient-to-b from-[#130718]/90 via-[#0a040d]/90 to-[#070309] p-6 sm:p-10 overflow-hidden shadow-2xl">
-        {/* Pinterest-style Makima Cyber-Noir Ambient Background Layer */}
+        {/* Pinterest-style Cyber-Noir Ambient Background Layer */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-30 select-none">
           <img
             src="/images/makima_bg.jpg"
-            alt="Makima Ambient Anime Artwork"
+            alt="ZATA Ambient Anime Artwork"
             className="w-full h-full object-cover object-top filter contrast-125 saturate-125 mix-blend-screen"
             onError={(e) => {
               (e.target as HTMLElement).style.display = 'none';
@@ -278,7 +281,7 @@ export default function LobbyPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-[#070309] via-transparent to-transparent" />
         </div>
 
-        {/* Background Ambient Glow & Makima Chains motif */}
+        {/* Background Ambient Glow motif */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-rose-600/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 left-10 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -290,17 +293,17 @@ export default function LobbyPage() {
                 <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                 <span>ZATA COMMUNITY</span>
                 <span className="text-slate-500">&bull;</span>
-                <span className="text-amber-400">Makima Autonomous Swarm</span>
+                <span className="text-amber-400">Autonomous AI Swarm</span>
               </span>
 
-              {/* Jedag-Jedug Beat Drop Button */}
+              {/* Phonk Beat Drop Button */}
               <button
                 onClick={() => soundManager.playJedagJedugBeat()}
                 className="px-3 py-1 rounded-full bg-gradient-to-r from-rose-900/60 to-red-900/60 hover:from-rose-800 hover:to-red-800 border border-rose-600/50 text-[11px] font-mono text-rose-200 font-bold transition flex items-center gap-1 shadow hover:scale-105 active:scale-95"
-                title="Play Makima Jedag-Jedug Bass Beat!"
+                title="Play 808 Phonk Bass Beat!"
               >
                 <Volume2 className="h-3 w-3 text-rose-400" />
-                <span>🔥 Makima Beat Drop</span>
+                <span>🔥 Drop Phonk Beat</span>
               </button>
             </div>
 
@@ -371,7 +374,7 @@ export default function LobbyPage() {
 
               {/* Fake Editor & Code Preview */}
               <div className="p-4 bg-[#08030b] space-y-1.5 text-[11px] text-rose-100/90 leading-relaxed border-b border-rose-950/50">
-                <div className="text-slate-500">// Makima Autonomous Multi-Agent Orchestrator Loop</div>
+                <div className="text-slate-500">// ZATA Autonomous Multi-Agent Swarm Loop</div>
                 <div>
                   <span className="text-rose-400">export async function</span>{' '}
                   <span className="text-amber-300">orchestrateSwarm</span>(goal:{' '}
@@ -383,7 +386,7 @@ export default function LobbyPage() {
                   <span className="text-emerald-300">&quot;Coder Beta&quot;</span>];
                 </div>
                 <div className="pl-4">
-                  <span className="text-rose-400">await</span> makima.executeTurn(agents, &#123;{' '}
+                  <span className="text-rose-400">await</span> zata.executeTurn(agents, &#123;{' '}
                   <span className="text-amber-400">vfs</span>: <span className="text-cyan-400">true</span> &#125;);
                 </div>
                 <div>&#125;</div>
@@ -472,7 +475,7 @@ export default function LobbyPage() {
               }`}
             >
               <Music className="h-4 w-4 text-rose-400" />
-              <span>Makima Phonk Lounge</span>
+              <span>Drift Phonk Lounge</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold">
                 Viral Drift
               </span>
@@ -560,7 +563,7 @@ export default function LobbyPage() {
             {loading ? (
               <div className="p-16 text-center text-slate-500 flex flex-col items-center gap-3">
                 <RefreshCw className="h-8 w-8 animate-spin text-rose-500" />
-                <span className="text-xs font-mono">Loading Makima swarm workspaces...</span>
+                <span className="text-xs font-mono">Loading agentic workspaces...</span>
               </div>
             ) : filteredRooms.length === 0 ? (
               <div className="p-16 text-center rounded-3xl border border-dashed border-rose-950/60 bg-[#0d0512]/60 space-y-4">
@@ -828,13 +831,13 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* TAB 3: MAKIMA PHONK LOUNGE */}
+        {/* TAB 3: PHONK LOUNGE */}
         {activeDashboardTab === 'phonk' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="border-b border-rose-950/60 pb-3">
               <h2 className="text-base font-bold text-white flex items-center gap-2 font-mono">
                 <Music className="h-5 w-5 text-rose-400" />
-                <span>Makima Jedag-Jedug Phonk Radio</span>
+                <span>Viral Drift Phonk Radio</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1 font-mono">
                 Musik drift phonk TikTok viral dengan Memphis cowbell synth dan heavy sliding 808 sub-bass glides.
@@ -847,18 +850,18 @@ export default function LobbyPage() {
                 <PhonkRadioPlayer />
               </div>
 
-              {/* Makima Anime Aesthetic Gallery Card */}
+              {/* Aesthetic Studio Showcase Card */}
               <div className="lg:col-span-6 rounded-2xl bg-[#0d0512] border border-rose-950 overflow-hidden shadow-2xl relative">
                 <div className="h-64 sm:h-80 w-full relative overflow-hidden">
                   <img
                     src="/images/makima_bg.jpg"
-                    alt="Makima Pinterest Aesthetic"
+                    alt="Cyber-Noir Studio Aesthetic"
                     className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0d0512] via-[#0d0512]/40 to-transparent" />
                   <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-rose-600/60 text-[11px] font-mono font-bold text-rose-300">
                     <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Makima Cyber-Noir Studio</span>
+                    <span>ZATA Cyber Studio</span>
                   </div>
                 </div>
 
@@ -876,7 +879,7 @@ export default function LobbyPage() {
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-rose-900/30 transition hover:scale-105"
                     >
                       <Volume2 className="h-4 w-4" />
-                      <span>Drop Makima Bass Beat</span>
+                      <span>Drop 808 Bass Beat</span>
                     </button>
                     <button
                       onClick={() => soundManager.playClick()}

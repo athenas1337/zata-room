@@ -303,7 +303,7 @@ export default function CodeEditorView({
           <span>&bull;</span>
           <span className="text-emerald-400 flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Makima Agent Swarm Synced
+            Autonomous Agent Swarm Synced
           </span>
         </div>
       </div>

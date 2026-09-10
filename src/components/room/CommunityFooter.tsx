@@ -49,7 +49,7 @@ export default function CommunityFooter() {
 
         <span className="text-[10px] text-rose-400/80 uppercase tracking-widest font-semibold flex items-center gap-1">
           <Sparkles className="h-3 w-3 text-amber-400" />
-          <span>Makima Cyber-Noir Studio</span>
+          <span>ZATA Studio IDE</span>
         </span>
       </div>
 
@@ -96,7 +96,7 @@ export default function CommunityFooter() {
                 <span>Lead Administrator</span>
               </span>
               <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold">
-                Atha
+                Official
               </span>
             </div>
             <div className="font-bold text-white text-xs group-hover:text-rose-300 transition">

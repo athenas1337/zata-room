@@ -222,7 +222,7 @@ export default function PublicStatusPage() {
 
       {/* Footer */}
       <footer className="border-t border-rose-950/60 py-4 bg-[#07030a] text-center text-[11px] text-slate-600">
-        ZATA Community &bull; Makima Autonomous Swarm Studio &bull; Real-Time Telemetry
+        ZATA Community &bull; Autonomous Swarm Cloud IDE &bull; Real-Time Telemetry
       </footer>
     </div>
   );
