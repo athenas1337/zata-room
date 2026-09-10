@@ -25,6 +25,14 @@ import CostSpeedometer from '@/components/room/CostSpeedometer';
 import MultiplayerCursors from '@/components/room/MultiplayerCursors';
 import ReactionOverlay from '@/components/room/ReactionOverlay';
 import AgentMarketplaceModal, { MarketplaceAgent } from '@/components/room/AgentMarketplaceModal';
+import MultiPhasePipeline, { DevPhase } from '@/components/room/MultiPhasePipeline';
+import MetaGPTArtifactGenerator from '@/components/room/MetaGPTArtifactGenerator';
+import WhiteboardCanvas from '@/components/room/WhiteboardCanvas';
+import GitGraphViewer from '@/components/ide/GitGraphViewer';
+import WebTerminal from '@/components/room/WebTerminal';
+import SelfHealingController from '@/components/ide/SelfHealingController';
+import HumanApprovalModal from '@/components/room/HumanApprovalModal';
+import CommunityFooter from '@/components/room/CommunityFooter';
 import {
   Bot,
   Plus,
@@ -36,6 +44,12 @@ import {
   ShieldCheck,
   Zap,
   ShoppingBag,
+  Code2,
+  MessageSquare,
+  Layers,
+  Terminal,
+  Columns,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -48,10 +62,21 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   const [room, setRoom] = useState<RoomDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Clean Tabbed Mode Navigation: 'ide' | 'chat' | 'architecture' | 'terminal' | 'split'
+  const [activeMode, setActiveMode] = useState<'split' | 'ide' | 'chat' | 'architecture' | 'terminal'>('split');
+  const [activeArchSubTab, setActiveArchSubTab] = useState<'metagpt' | 'whiteboard' | 'git_graph'>('metagpt');
+
+  // Modals state
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isGodModeOpen, setIsGodModeOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
+  const [approvalModalData, setApprovalModalData] = useState<{
+    filePath: string;
+    proposedContent: string;
+    agentName: string;
+  } | null>(null);
 
   // Host & GodMode Status
   const [isHost, setIsHost] = useState(false);
@@ -90,12 +115,10 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       if (sessionStorage.getItem('zata_godmode_pass') === 'Atha1337') {
         setIsGodMode(true);
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
   }, [roomId]);
 
-  // Keyboard shortcut for Atha1337 Godmode: Ctrl + Shift + A & Command Palette: Ctrl + K
+  // Keyboard shortcuts (Ctrl+Shift+A for Godmode, Ctrl+K for Palette)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
@@ -149,9 +172,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         try {
           const payload = JSON.parse(event.data);
           handleSSEMessage(payload);
-        } catch (err) {
-          // ignore heartbeat parse errors
-        }
+        } catch (err) {}
       };
 
       eventSource.onerror = () => {
@@ -190,8 +211,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             messages: [...prev.messages, data],
           };
         });
-
-        // Trigger turn countdown delay if room is active
         startDelayCountdown(room?.turnDelaySec || 5);
         break;
 
@@ -309,11 +328,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         method: 'POST',
       });
       const data = await res.json();
-
-      if (!data.success) {
-        if (data.haltReason) {
-          clearDelayCountdown();
-        }
+      if (!data.success && data.haltReason) {
+        clearDelayCountdown();
       }
     } catch (err) {
       console.error('Turn execution error:', err);
@@ -377,7 +393,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const handleSendDirectorMessage = async (content: string) => {
-    // Secret backdoor trigger in director input: if Atha types 'Atha1337', open Godmode!
+    // Secret backdoor trigger in director input: if Atha types the master code, open Godmode!
     if (content.trim() === 'Atha1337') {
       soundManager.playCheckpoint();
       setIsGodModeOpen(true);
@@ -446,18 +462,33 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const handleSaveVfsFile = async (path: string, content: string) => {
+    const ext = path.split('.').pop() || 'typescript';
+    await fetch(`/api/rooms/${roomId}/files`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path,
+        content,
+        language: ext,
+        updatedBy: 'Human Director',
+      }),
+    });
+    fetchRoomData();
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
         <RefreshCw className="h-8 w-8 text-rose-500 animate-spin" />
-        <p className="text-sm text-slate-400">Loading Agentic Room session...</p>
+        <p className="text-sm text-slate-400 font-mono">Loading Agentic Room session...</p>
       </div>
     );
   }
 
   if (error || !room) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono">
         <AlertTriangle className="h-10 w-10 text-amber-500 mb-3" />
         <h2 className="text-base font-bold text-white mb-1">Failed to load room</h2>
         <p className="text-xs text-slate-400 mb-4">{error || 'Room not found'}</p>
@@ -477,11 +508,9 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
       : null;
 
   return (
-    <div className="flex-1 flex flex-col max-w-[1750px] w-full mx-auto pb-8 relative">
-      {/* Real-time Simulated Collaborative Cursors (F61) */}
+    <div className="flex-1 flex flex-col max-w-[1750px] w-full mx-auto pb-8 relative font-mono">
+      {/* Real-time Collaborative Cursors & Floating Reactions */}
       <MultiplayerCursors participants={room.participants} />
-
-      {/* Floating Spectator Reactions Overlay (F63) */}
       <ReactionOverlay />
 
       {/* Global Broadcast Banner */}
@@ -507,8 +536,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* Top Breadcrumb & Room Title Header */}
-      <div className="px-4 py-3 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-3 bg-slate-950/40">
+      {/* 1. TOP HEADER & BREADCRUMBS */}
+      <div className="px-4 py-3 border-b border-rose-950/50 flex flex-wrap items-center justify-between gap-3 bg-[#0a040e]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Link
             href="/"
@@ -535,12 +564,11 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        {/* Header Right: Phonk Radio (F42), Participants & Developer Controls */}
+        {/* Right Header Controls: Phonk Radio & Actions */}
         <div className="flex items-center gap-2">
-          {/* Phonk Radio Player */}
           <PhonkRadioPlayer />
 
-          {/* Developer Superuser Trigger (Ctrl+Shift+A) */}
+          {/* Developer Superuser Secret Trigger (Ctrl+Shift+A) */}
           <button
             onClick={() => setIsGodModeOpen(true)}
             className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-amber-500/50 text-slate-500 hover:text-amber-400 text-[10px] font-mono transition"
@@ -549,8 +577,8 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
             <Zap className="h-3.5 w-3.5" />
           </button>
 
-          {/* Participants Badges + Add Agent */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+          {/* Agents Badge & Add Agent */}
+          <div className="flex items-center gap-1.5 bg-[#120718] px-3 py-1.5 rounded-xl border border-rose-950">
             <span className="text-[11px] text-slate-400 font-medium">Agents ({room.participants.length}/2+):</span>
             <div className="flex items-center -space-x-1.5">
               {room.participants.map((p) => (
@@ -558,18 +586,17 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
                   key={p.id}
                   className="h-6 w-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold text-white shadow"
                   style={{ backgroundColor: p.avatarColor }}
-                  title={`${p.agentName} (${p.roleLabel}) — ${p.provider} (${p.modelName}) [${p.keyMask}]`}
+                  title={`${p.agentName} (${p.roleLabel}) — ${p.provider} (${p.modelName})`}
                 >
                   {p.agentName[0]}
                 </span>
               ))}
             </div>
 
-            {/* Agent Marketplace Hub Button (F12) */}
             <button
               onClick={() => setIsMarketplaceOpen(true)}
-              className="ml-1.5 p-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 transition"
-              title="Browse Agent Marketplace (F12)"
+              className="ml-1 p-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 transition"
+              title="Agent Marketplace"
             >
               <ShoppingBag className="h-3 w-3" />
             </button>
@@ -585,7 +612,50 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      {/* Sticky Safety Control Bar with Host/Guest Authorization */}
+      {/* 2. STREAMLINED MODE NAVIGATION TABS (UNCLUTTERED WORKBENCH) */}
+      <div className="px-4 pt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1 p-1 bg-[#100617] rounded-xl border border-rose-950/80">
+          {[
+            { id: 'split', label: 'Split Studio', icon: Columns },
+            { id: 'ide', label: 'Cloud IDE', icon: Code2 },
+            { id: 'chat', label: 'Swarm Chat', icon: MessageSquare },
+            { id: 'architecture', label: 'Architecture & SOP', icon: Layers },
+            { id: 'terminal', label: 'Terminal & Tools', icon: Terminal },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeMode === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  soundManager.playClick();
+                  setActiveMode(tab.id as any);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                  isActive
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Mini Speedometer & Sanitizer Badge */}
+        <div className="hidden sm:flex items-center gap-3">
+          <CostSpeedometer
+            totalTokens={room.totalTokens}
+            estimatedCost={room.estimatedCost}
+            currentTurn={room.currentTurn}
+            maxTurns={room.maxTurns}
+          />
+        </div>
+      </div>
+
+      {/* 3. SAFETY CONTROL BAR */}
       <SafetyControlBar
         roomId={roomId}
         roomName={room.name}
@@ -608,21 +678,6 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         onRoomDeleted={() => router.push('/')}
       />
 
-      {/* Live Burn-Rate Speedometer & Secret Sanitizer (F51 & F58) */}
-      <div className="px-4 py-2">
-        <CostSpeedometer
-          totalTokens={room.totalTokens}
-          estimatedCost={room.estimatedCost}
-          currentTurn={room.currentTurn}
-          maxTurns={room.maxTurns}
-        />
-      </div>
-
-      {/* Swarm Topology Selector (F11) */}
-      <div className="px-4 pb-2">
-        <SwarmTopologySelector />
-      </div>
-
       {/* Visual Delay Countdown Overlay */}
       {countdownSeconds > 0 && nextAgent && (
         <CountdownOverlay
@@ -634,7 +689,7 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         />
       )}
 
-      {/* Notice if Room has < 2 agents */}
+      {/* Minimum 2 Agents Banner */}
       {room.participants.length < 2 && (
         <div className="mx-4 mb-4 p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -649,50 +704,184 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMarketplaceOpen(true)}
-              className="px-3 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700 text-xs font-semibold shadow-md transition"
+              className="px-3 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700 text-xs font-semibold shadow transition"
             >
-              Open Marketplace
+              Marketplace
             </button>
             <button
               onClick={() => setIsRoleModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold whitespace-nowrap shadow-md transition"
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow transition"
             >
-              Configure Agent #{room.participants.length + 1}
+              Configure Agent
             </button>
           </div>
         </div>
       )}
 
-      {/* Main Split Layout: Chat View (Left) & Antigravity VFS/Terminal Workspace (Right) */}
-      <div className="flex-1 px-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[640px]">
-        {/* Left Column: Real-time Group Chat & Director Guidance (6 cols) */}
-        <div className="lg:col-span-6 h-[760px]">
-          <AgentChatView
-            roomId={roomId}
-            messages={room.messages}
-            participants={room.participants}
-            thinkingAgent={thinkingAgent}
-            onSendDirectorMessage={handleSendDirectorMessage}
-          />
-        </div>
+      {/* 4. MAIN WORKBENCH VIEW ACCORDING TO ACTIVE MODE TAB */}
+      <div className="flex-1 px-4 mt-2">
+        {/* MODE 1: SPLIT STUDIO (Chat Left, IDE Right) */}
+        {activeMode === 'split' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[720px]">
+            <div className="lg:col-span-6 h-[740px] flex flex-col space-y-3">
+              <MultiPhasePipeline
+                currentTurn={room.currentTurn}
+                maxTurns={room.maxTurns}
+              />
+              <div className="flex-1 min-h-0">
+                <AgentChatView
+                  roomId={roomId}
+                  messages={room.messages}
+                  participants={room.participants}
+                  thinkingAgent={thinkingAgent}
+                  onSendDirectorMessage={handleSendDirectorMessage}
+                />
+              </div>
+            </div>
+            <div className="lg:col-span-6 h-[740px]">
+              <SharedWorkspace
+                roomId={roomId}
+                roomName={room.name}
+                workspaceItems={room.workspaceItems}
+                safetyEvents={room.safetyEvents}
+                virtualFiles={virtualFiles}
+                terminalLogs={terminalLogs}
+                isHost={isHost}
+                onFilesUpdated={fetchRoomData}
+                onTerminalExecuted={fetchRoomData}
+              />
+            </div>
+          </div>
+        )}
 
-        {/* Right Column: Antigravity VFS + Terminal + Preview + Git + Whiteboard (6 cols) */}
-        <div className="lg:col-span-6 h-[760px]">
-          <SharedWorkspace
-            roomId={roomId}
-            roomName={room.name}
-            workspaceItems={room.workspaceItems}
-            safetyEvents={room.safetyEvents}
-            virtualFiles={virtualFiles}
-            terminalLogs={terminalLogs}
-            isHost={isHost}
-            onFilesUpdated={fetchRoomData}
-            onTerminalExecuted={fetchRoomData}
-          />
-        </div>
+        {/* MODE 2: CLOUD IDE FULLSCREEN */}
+        {activeMode === 'ide' && (
+          <div className="h-[740px]">
+            <SharedWorkspace
+              roomId={roomId}
+              roomName={room.name}
+              workspaceItems={room.workspaceItems}
+              safetyEvents={room.safetyEvents}
+              virtualFiles={virtualFiles}
+              terminalLogs={terminalLogs}
+              isHost={isHost}
+              onFilesUpdated={fetchRoomData}
+              onTerminalExecuted={fetchRoomData}
+            />
+          </div>
+        )}
+
+        {/* MODE 3: AGENT SWARM CHAT FULLSCREEN */}
+        {activeMode === 'chat' && (
+          <div className="h-[740px] flex flex-col space-y-3">
+            <MultiPhasePipeline
+              currentTurn={room.currentTurn}
+              maxTurns={room.maxTurns}
+            />
+            <div className="flex-1 min-h-0">
+              <AgentChatView
+                roomId={roomId}
+                messages={room.messages}
+                participants={room.participants}
+                thinkingAgent={thinkingAgent}
+                onSendDirectorMessage={handleSendDirectorMessage}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* MODE 4: ARCHITECTURE & SOP (MetaGPT PRD, Whiteboard Canvas, Git Graph) */}
+        {activeMode === 'architecture' && (
+          <div className="h-[740px] bg-[#09030c] border border-rose-950/70 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+            {/* Sub-tabs */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0e0513] border-b border-rose-950/60">
+              <span className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="h-4 w-4 text-rose-400" />
+                <span>Architecture &amp; MetaGPT Engineering Suite</span>
+              </span>
+
+              <div className="flex items-center gap-1 bg-[#130718] p-1 rounded-xl border border-rose-950">
+                {[
+                  { id: 'metagpt', label: 'MetaGPT PRD & SOP' },
+                  { id: 'whiteboard', label: 'Whiteboard Canvas' },
+                  { id: 'git_graph', label: 'Git Commit Tree (Aider)' },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveArchSubTab(st.id as any);
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold transition ${
+                      activeArchSubTab === st.id
+                        ? 'bg-rose-600 text-white'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0">
+              {activeArchSubTab === 'metagpt' && (
+                <MetaGPTArtifactGenerator
+                  roomName={room.name}
+                  roomGoal={room.goal}
+                  onSaveFile={handleSaveVfsFile}
+                />
+              )}
+              {activeArchSubTab === 'whiteboard' && (
+                <WhiteboardCanvas roomId={roomId} />
+              )}
+              {activeArchSubTab === 'git_graph' && (
+                <GitGraphViewer roomId={roomId} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODE 5: TERMINAL & DIAGNOSTICS */}
+        {activeMode === 'terminal' && (
+          <div className="h-[740px] grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-8 h-full">
+              <WebTerminal
+                roomId={roomId}
+                logs={terminalLogs}
+                onCommandExecuted={fetchRoomData}
+                isHost={isHost}
+              />
+            </div>
+            <div className="lg:col-span-4 h-full flex flex-col space-y-3 overflow-y-auto">
+              <SwarmTopologySelector />
+              <div className="flex-1 bg-[#09030c] border border-rose-950/70 rounded-2xl overflow-hidden p-2">
+                <SelfHealingController
+                  roomId={roomId}
+                  files={virtualFiles}
+                  logs={terminalLogs}
+                  onApplyFix={handleSaveVfsFile}
+                  onRunTestCommand={async () => {
+                    await fetch(`/api/rooms/${roomId}/terminal`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ command: 'npm test', executedBy: 'Self-Healing Engine' }),
+                    });
+                    fetchRoomData();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Role & Participant Modal */}
+      {/* 5. COMMUNITY & WHATSAPP SUPPORT FOOTER */}
+      <div className="px-4">
+        <CommunityFooter />
+      </div>
+
+      {/* MODALS */}
       <RoleConfigModal
         roomId={roomId}
         isOpen={isRoleModalOpen}
@@ -701,24 +890,37 @@ export default function RoomDetailPage({ params }: { params: Promise<{ id: strin
         existingCount={room.participants.length}
       />
 
-      {/* Community Agent Marketplace Modal (F12) */}
       <AgentMarketplaceModal
         isOpen={isMarketplaceOpen}
         onClose={() => setIsMarketplaceOpen(false)}
         onSelectAgent={handleSelectMarketplaceAgent}
       />
 
-      {/* Developer GodMode Modal (Atha1337) */}
       <GodModeModal isOpen={isGodModeOpen} onClose={() => setIsGodModeOpen(false)} />
 
-      {/* Command Palette (Ctrl+K) */}
+      <HumanApprovalModal
+        isOpen={approvalModalData !== null}
+        filePath={approvalModalData?.filePath || ''}
+        proposedContent={approvalModalData?.proposedContent || ''}
+        agentName={approvalModalData?.agentName || ''}
+        onApprove={() => {
+          if (approvalModalData) {
+            handleSaveVfsFile(approvalModalData.filePath, approvalModalData.proposedContent);
+            setApprovalModalData(null);
+          }
+        }}
+        onReject={(feedback) => {
+          handleSendDirectorMessage(`[Human Revision Requested on ${approvalModalData?.filePath}]: ${feedback}`);
+          setApprovalModalData(null);
+        }}
+        onClose={() => setApprovalModalData(null)}
+      />
+
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         files={virtualFiles}
-        onSelectFile={(path) => {
-          // File selected
-        }}
+        onSelectFile={() => {}}
         onRunTerminal={async (cmd) => {
           await fetch(`/api/rooms/${roomId}/terminal`, {
             method: 'POST',

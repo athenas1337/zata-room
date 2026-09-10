@@ -2,16 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Radio,
   Play,
   Pause,
-  Volume2,
-  VolumeX,
   Music,
   Keyboard,
   Sparkles,
   Palette,
   Check,
+  Flame,
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 
@@ -20,12 +18,13 @@ interface Track {
   name: string;
   bpm: number;
   genre: string;
+  style: 'tiktok_drift' | 'tokyo_night' | 'makima_velvet';
 }
 
 const TRACKS: Track[] = [
-  { id: 'track1', name: 'Makima Velvet Phonk', bpm: 130, genre: 'Drift Phonk' },
-  { id: 'track2', name: 'Tokyo Obsidian Lo-Fi', bpm: 92, genre: 'Cyber Chillhop' },
-  { id: 'track3', name: 'Control Devil Bass', bpm: 138, genre: 'Dark Wave' },
+  { id: 'track1', name: 'TikTok Viral Drift Phonk (Cowbell)', bpm: 140, genre: 'Viral Cowbell Phonk', style: 'tiktok_drift' },
+  { id: 'track2', name: 'Tokyo Obsidian Night Drive', bpm: 134, genre: 'Dark Wave Phonk', style: 'tokyo_night' },
+  { id: 'track3', name: 'Makima Velvet Chillhop', bpm: 92, genre: 'Lo-Fi Chillhop', style: 'makima_velvet' },
 ];
 
 const THEMES = [
@@ -65,10 +64,9 @@ export default function PhonkRadioPlayer() {
       for (let i = 0; i < bars; i++) {
         let h = 3;
         if (isPlaying) {
-          // React to active step
           const dist = Math.abs((activeStep % bars) - i);
-          const energy = dist === 0 ? 1 : dist === 1 ? 0.7 : 0.25;
-          h = Math.max(3, Math.sin(Date.now() * 0.008 + i) * 8 * energy + 10 * energy);
+          const energy = dist === 0 ? 1 : dist === 1 ? 0.75 : 0.25;
+          h = Math.max(3, Math.sin(Date.now() * 0.012 + i) * 7 * energy + 11 * energy);
         }
 
         ctx.fillStyle = i === activeStep ? '#f43f5e' : '#be123c';
@@ -86,7 +84,7 @@ export default function PhonkRadioPlayer() {
       soundManager.stopPhonkRadio();
       setIsPlaying(false);
     } else {
-      soundManager.startPhonkRadio(currentTrack.bpm, (step) => {
+      soundManager.startPhonkRadio(currentTrack.bpm, currentTrack.style, (step) => {
         setActiveStep(step);
       });
       setIsPlaying(true);
@@ -97,7 +95,7 @@ export default function PhonkRadioPlayer() {
     soundManager.playClick();
     setCurrentTrack(track);
     if (isPlaying) {
-      soundManager.startPhonkRadio(track.bpm, (step) => {
+      soundManager.startPhonkRadio(track.bpm, track.style, (step) => {
         setActiveStep(step);
       });
     }
@@ -120,7 +118,7 @@ export default function PhonkRadioPlayer() {
   return (
     <div className="relative font-mono text-xs select-none">
       {/* Mini Radio Bar */}
-      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#110617]/90 border border-rose-950/80 shadow-md backdrop-blur-md">
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-[#110617]/90 border border-rose-950/80 shadow-md backdrop-blur-md">
         <button
           onClick={handleTogglePlay}
           className={`p-1.5 rounded-lg transition ${
@@ -128,30 +126,39 @@ export default function PhonkRadioPlayer() {
               ? 'bg-rose-600 text-white shadow-md shadow-rose-600/40 animate-pulse'
               : 'text-slate-400 hover:text-white bg-slate-900/60'
           }`}
-          title={isPlaying ? 'Pause Phonk Radio' : 'Play Phonk Radio'}
+          title={isPlaying ? 'Pause Phonk Radio' : 'Play TikTok Viral Drift Phonk'}
         >
           {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
         </button>
 
+        {/* Quick Beat Drop Button */}
+        <button
+          onClick={() => soundManager.playJedagJedugBeat()}
+          className="p-1.5 rounded-lg bg-rose-950/60 border border-rose-900/50 hover:bg-rose-900 text-rose-300 transition"
+          title="Instant Jedag-Jedug 808 Cowbell Drop!"
+        >
+          <Flame className="h-3.5 w-3.5 text-amber-400" />
+        </button>
+
         <div
           onClick={() => setIsExpanded(!isExpanded)}
-          className="cursor-pointer flex items-center gap-2 group"
+          className="cursor-pointer flex items-center gap-2 group px-1"
           title="Click to open radio tracklist & theme settings"
         >
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 max-w-[140px] truncate">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
-              <span className="text-[11px] font-bold text-white group-hover:text-rose-300 transition">
+              <span className="text-[11px] font-bold text-white group-hover:text-rose-300 transition truncate">
                 {currentTrack.name}
               </span>
             </div>
-            <span className="text-[9px] text-slate-500 uppercase tracking-wider block">
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider block truncate">
               {currentTrack.genre} • {currentTrack.bpm} BPM
             </span>
           </div>
 
           {/* Mini Waveform Canvas */}
-          <canvas ref={canvasRef} width={64} height={18} className="rounded bg-[#08020b]" />
+          <canvas ref={canvasRef} width={48} height={16} className="rounded bg-[#08020b] hidden sm:block" />
         </div>
 
         {/* Mechanical Keyboard Feedback Button (F47) */}
@@ -162,19 +169,19 @@ export default function PhonkRadioPlayer() {
               ? 'bg-purple-950/80 border-purple-700/80 text-purple-300'
               : 'bg-slate-900/50 border-slate-800/80 text-slate-500 hover:text-slate-300'
           }`}
-          title={`Mechanical Keyboard Audio Feedback: ${isKeySoundOn ? 'ON' : 'OFF'}`}
+          title={`Mechanical Keyboard Sound: ${isKeySoundOn ? 'ON' : 'OFF'}`}
         >
           <Keyboard className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {/* Expanded Tracklist & Makima Presets Popover */}
+      {/* Expanded Tracklist Popover */}
       {isExpanded && (
         <div className="absolute right-0 top-12 z-50 w-72 p-3 bg-[#0d0413] border border-rose-900/80 rounded-2xl shadow-2xl space-y-3 animate-in fade-in">
           <div className="flex items-center justify-between pb-2 border-b border-rose-950/60 text-slate-300 font-bold text-[11px]">
             <div className="flex items-center gap-1.5 text-rose-400">
               <Music className="h-3.5 w-3.5" />
-              <span>Makima Cyber Radio</span>
+              <span>TikTok Phonk Radio</span>
             </div>
             <button
               onClick={() => setIsExpanded(false)}
@@ -186,7 +193,7 @@ export default function PhonkRadioPlayer() {
 
           {/* Track list */}
           <div className="space-y-1">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Stations:</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Soundtracks:</span>
             {TRACKS.map((t) => (
               <div
                 key={t.id}
@@ -206,11 +213,11 @@ export default function PhonkRadioPlayer() {
             ))}
           </div>
 
-          {/* F48 Theme Presets */}
+          {/* Themes */}
           <div className="space-y-1.5 pt-1 border-t border-rose-950/60">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider flex items-center gap-1">
               <Palette className="h-3 w-3 text-rose-400" />
-              <span>Makima Cyber Themes (F48):</span>
+              <span>Makima Cyber Themes:</span>
             </span>
             <div className="grid grid-cols-2 gap-1.5">
               {THEMES.map((theme) => (
