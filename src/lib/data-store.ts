@@ -403,17 +403,36 @@ class MemoryStore {
 const memoryDb = new MemoryStore();
 let isPrismaAvailable: boolean | null = null;
 
+export async function ensureDefaultUser() {
+  try {
+    await db.user.upsert({
+      where: { id: 'usr-default' },
+      update: {},
+      create: {
+        id: 'usr-default',
+        name: 'Human Director (Host)',
+        email: 'director@zata.ai',
+      },
+    });
+  } catch (err) {
+    console.warn('[DataStore] ensureDefaultUser warning:', err);
+  }
+}
+
 async function checkPrismaAvailable(): Promise<boolean> {
-  if (isPrismaAvailable !== null) return isPrismaAvailable;
+  if (isPrismaAvailable === true) return true;
+  if (!process.env.DATABASE_URL) return false;
+
   try {
     await Promise.race([
       db.$queryRaw`SELECT 1`,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 1500)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 6000)),
     ]);
     isPrismaAvailable = true;
+    await ensureDefaultUser();
     return true;
-  } catch {
-    isPrismaAvailable = false;
+  } catch (err) {
+    console.warn('[DataStore] Prisma DB probe failed or cold-start waiting:', err);
     return false;
   }
 }
@@ -541,7 +560,22 @@ export const dataStore = {
     };
 
     if (await checkPrismaAvailable()) {
-      return db.room.create({ data: roomPayload });
+      await ensureDefaultUser();
+      const room = await db.room.create({ data: roomPayload });
+      await db.virtualFile
+        .create({
+          data: {
+            roomId: room.id,
+            path: 'README.md',
+            name: 'README.md',
+            language: 'markdown',
+            sizeBytes: 180,
+            content: `# ${data.name}\n\n**Goal**: ${data.goal}\n\nCollaborative Antigravity Multi-Agent Environment.`,
+            updatedBy: 'System',
+          },
+        })
+        .catch(() => {});
+      return room;
     }
 
     const id = `room-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -641,6 +675,7 @@ export const dataStore = {
     const encrypted = encryptApiKey(data.apiKey);
 
     if (await checkPrismaAvailable()) {
+      await ensureDefaultUser();
       const count = await db.roomParticipant.count({ where: { roomId } });
       return db.roomParticipant.create({
         data: {
